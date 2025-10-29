@@ -136,10 +136,12 @@
             border-radius: 12px;
             transition: .15s all ease;
         }
+        .contact-left {
+            cursor: pointer;
+        }
 
-        .contact-row:hover {
-            background: rgba(255,255,255,0.05);
-            box-shadow: 0 16px 40px rgba(0,0,0,0.8), 0 0 60px rgba(255,255,255,0.07);
+        .contact-copy {
+            cursor: pointer;
         }
 
         .contact-left {
@@ -268,34 +270,42 @@
 
 </main>
 <script>
-  document.querySelectorAll(".contact-row").forEach(row => {
-    row.addEventListener("click", e => {
-      const copyVal = row.getAttribute("data-copy");
-      const linkVal = row.getAttribute("data-link");
+    document.querySelectorAll(".contact-row").forEach(row => {
+      const copyBtn = row.querySelector(".contact-copy");
+      const linkArea = row.querySelector(".contact-left");
 
-      // copy to clipboard
-      navigator.clipboard.writeText(copyVal);
+      // handle copy
+      copyBtn.addEventListener("click", e => {
+        e.stopPropagation();
 
-      // visual feedback on "copy"
-      const copyEl = row.querySelector(".contact-copy");
-      const originalText = copyEl.textContent;
-      copyEl.textContent = "copied";
-      copyEl.classList.add("copied");
+        const copyVal = row.getAttribute("data-copy");
+        navigator.clipboard.writeText(copyVal);
 
-      setTimeout(() => {
-        copyEl.textContent = originalText;
-        copyEl.classList.remove("copied");
-      }, 1000);
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = "copied";
+        copyBtn.classList.add("copied");
 
-      // open link in new tab / window (or mailto)
-      if (linkVal && linkVal.startsWith("mailto:")) {
-        window.location.href = linkVal;
-      } else if (linkVal) {
-        window.open(linkVal, "_blank");
-      }
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+          copyBtn.classList.remove("copied");
+        }, 1000);
+      });
+
+      // handle link open
+      linkArea.addEventListener("click", e => {
+        e.stopPropagation();
+
+        const linkVal = row.getAttribute("data-link");
+        if (!linkVal) return;
+
+        if (linkVal.startsWith("mailto:")) {
+          window.location.href = linkVal;
+        } else {
+          window.open(linkVal, "_blank");
+        }
+      });
     });
-  });
-</script>
+  </script>
 
 </body>
 </html>
