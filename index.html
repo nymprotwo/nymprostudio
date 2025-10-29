@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NYM AI</title>
+
+    <style>
+        :root {
+            --bg-color-1: #000000;
+            --bg-color-2: #0c0c0f;
+            --text-main: #ffffff;
+            --text-dim: #8a8a8a;
+            --border-dim: rgba(255,255,255,0.07);
+            --radius: 14px;
+            --max-width: 420px;
+            --font-stack: "Inter", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
+            Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color-1);
+            background-image:
+                    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0) 60%),
+                    radial-gradient(circle at 80% 10%, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0) 60%),
+                    radial-gradient(circle at 50% 110%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 70%);
+            color: var(--text-main);
+            font-family: var(--font-stack);
+            min-height: 100dvh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 5rem 1.5rem 4rem;
+            position: relative;
+        }
+
+        /* шум */
+        body::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.15'/></svg>");
+            opacity: 0.07;
+            mix-blend-mode: screen;
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: var(--max-width);
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 2.5rem;
+        }
+
+        /* ========= HEADER ========= */
+
+        /* ВАРИАНТ А (левый край) */
+        .header-left {
+            text-align: left;
+        }
+        .brand-left {
+            font-size: clamp(2rem, 2.2rem, 2.4rem);
+            font-weight: 600;
+            line-height: 1.1;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+            background: radial-gradient(circle at 20% 20%, #ffffff 0%, #9d9fa3 35%, #4a4c50 70%, #1a1a1c 100%);
+            -webkit-background-clip: text;
+            color: transparent;
+            filter: drop-shadow(0 0 20px rgba(255,255,255,0.08));
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+        .tagline-left {
+            font-size: .9rem;
+            line-height: 1.4;
+            font-weight: 400;
+            color: var(--text-dim);
+            max-width: 90%;
+        }
+
+        /* ВАРИАНТ B (по центру) */
+        .header-center {
+            text-align: center;
+        }
+        .brand-center {
+            font-size: clamp(2rem, 2.2rem, 2.4rem);
+            font-weight: 600;
+            line-height: 1.1;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+            background: radial-gradient(circle at 20% 20%, #ffffff 0%, #9d9fa3 35%, #4a4c50 70%, #1a1a1c 100%);
+            -webkit-background-clip: text;
+            color: transparent;
+            filter: drop-shadow(0 0 20px rgba(255,255,255,0.08));
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+        .tagline-center {
+            font-size: .9rem;
+            line-height: 1.4;
+            font-weight: 400;
+            color: var(--text-dim);
+            /* мы жёстко ограничим ширину и поставим margin:0 auto,
+               чтобы текст не вылезал по бокам и красиво переносился */
+            max-width: 22rem;
+            margin: 0 auto;
+        }
+
+        /* ========= CONTACT LIST ========= */
+
+        .links-block {
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+        }
+
+        .contact-row {
+            text-decoration: none;
+            color: var(--text-main);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: .9rem 1rem 1rem;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-dim);
+            border-radius: 12px;
+            transition: .15s all ease;
+        }
+
+        .contact-row:hover {
+            background: rgba(255,255,255,0.05);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.8), 0 0 60px rgba(255,255,255,0.07);
+        }
+
+        .contact-left {
+            display: flex;
+            flex-direction: column;
+            gap: .3rem;
+        }
+
+        .contact-label {
+            font-size: .8rem;
+            font-weight: 600;
+            letter-spacing: .05em;
+            color: var(--text-main);
+        }
+
+        .contact-hint {
+            font-size: .7rem;
+            font-weight: 400;
+            line-height: 1.4;
+            color: var(--text-dim);
+            word-break: break-word;
+        }
+        .contact-copy {
+            font-size: .8rem;
+            line-height: 1;
+            color: var(--text-dim);
+            padding-left: .75rem;
+            min-width: 2.5rem;
+            text-align: right;
+            user-select: none;
+        }
+        .contact-copy.copied {
+            color: #ffffff;
+        }
+
+        footer {
+            font-size: .7rem;
+            font-weight: 400;
+            color: var(--text-dim);
+            line-height: 1.4;
+            text-align: left;
+            padding-top: 1rem;
+        }
+
+        @media (min-width:480px){
+            body {
+                padding-top: 4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<main class="wrap">
+
+    <!-- ========================
+         ВЫБЕРИ ОДИН HEADER
+         ======================== -->
+
+    <!-- ВАРИАНТ А: выравнивание слева -->
+    <header class="header-left">
+        <div class="brand-left">NYM&nbsp;AI</div>
+        <div class="tagline-left">
+            Human + Machine Creative Unit. Visual R&D, AI Video Direction, Fast Content Systems.
+        </div>
+    </header>
+
+    <!-- ВАРИАНТ B: выравнивание по центру (если хочешь этот — оставь, а верхний закомментируй)
+    <header class="header-center">
+      <div class="brand-center">NYM&nbsp;AI</div>
+      <div class="tagline-center">
+        Human + Machine Creative Unit.<br/>
+        Visual R&amp;D • AI Video Direction • Fast Content Systems.
+      </div>
+    </header>
+    -->
+
+    <!-- CONTACTS -->
+    <section class="links-block">
+
+        <div class="contact-row" data-copy="@nympro.ai" data-link="https://instagram.com/nympro.ai">
+            <div class="contact-left">
+                <div class="contact-label">Instagram</div>
+                <div class="contact-hint">@nympro.ai</div>
+            </div>
+            <div class="contact-copy">copy</div>
+        </div>
+
+        <div class="contact-row" data-copy="@so_engineer" data-link="https://t.me/so_engineer">
+            <div class="contact-left">
+                <div class="contact-label">Telegram</div>
+                <div class="contact-hint">@so_engineer</div>
+            </div>
+            <div class="contact-copy">copy</div>
+        </div>
+
+        <div class="contact-row" data-copy="+7 951 889 31 33" data-link="https://wa.me/79518893133">
+            <div class="contact-left">
+                <div class="contact-label">WhatsApp</div>
+                <div class="contact-hint">+7 951 889 31 33</div>
+            </div>
+            <div class="contact-copy">copy</div>
+        </div>
+
+        <div class="contact-row" data-copy="https://www.youtube.com/@Nympro" data-link="https://www.youtube.com/@Nympro">
+            <div class="contact-left">
+                <div class="contact-label">YouTube</div>
+                <div class="contact-hint">@Nympro</div>
+            </div>
+            <div class="contact-copy">copy</div>
+        </div>
+
+        <div class="contact-row" data-copy="nympro.one@gmail.com" data-link="mailto:nympro.one@gmail.com">
+            <div class="contact-left">
+                <div class="contact-label">Email</div>
+                <div class="contact-hint">nympro.one@gmail.com</div>
+            </div>
+            <div class="contact-copy">copy</div>
+        </div>
+
+    </section>
+
+    <footer>
+        © 2025 NYM AI — Bangkok / Remote Worldwide
+    </footer>
+
+</main>
+<script>
+  document.querySelectorAll(".contact-row").forEach(row => {
+    row.addEventListener("click", e => {
+      const copyVal = row.getAttribute("data-copy");
+      const linkVal = row.getAttribute("data-link");
+
+      // copy to clipboard
+      navigator.clipboard.writeText(copyVal);
+
+      // visual feedback on "copy"
+      const copyEl = row.querySelector(".contact-copy");
+      const originalText = copyEl.textContent;
+      copyEl.textContent = "copied";
+      copyEl.classList.add("copied");
+
+      setTimeout(() => {
+        copyEl.textContent = originalText;
+        copyEl.classList.remove("copied");
+      }, 1000);
+
+      // open link in new tab / window (or mailto)
+      if (linkVal && linkVal.startsWith("mailto:")) {
+        window.location.href = linkVal;
+      } else if (linkVal) {
+        window.open(linkVal, "_blank");
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
