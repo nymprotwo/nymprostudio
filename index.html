@@ -1,11 +1,38 @@
+<!--
+============================================
+--------------------------------------------
+                 N Y M   A I
+--------------------------------------------
+============================================
+               Human + Machine
+        Creative Systems for the Future
+============================================
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="icon" href="./favicon.ico">
+    <link rel="shortcut icon" href="./favicon.ico">
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="format-detection" content="telephone=no">
     <title>NYM AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
+          rel="stylesheet">
 
     <style>
+        a[href^="tel"], a[href^="sms"] {
+            color: inherit;
+            text-decoration: none;
+            pointer-events: none;
+            cursor: default;
+        }
+
+        meta[name="format-detection"] {
+            content: "telephone=no";
+        }
         :root {
             --bg-color-1: #000000;
             --bg-color-2: #0c0c0f;
@@ -14,8 +41,6 @@
             --border-dim: rgba(255, 255, 255, 0.07);
             --radius: 14px;
             --max-width: 420px;
-            --font-stack: "Inter", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
-            Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
         * {
@@ -30,16 +55,16 @@
             radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0) 60%),
             radial-gradient(circle at 50% 110%, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
             color: var(--text-main);
-            font-family: var(--font-stack) sans-serif;
+            font-family: "Inter", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
+            Roboto, "Helvetica Neue", Arial, sans-serif;
             min-height: 100dvh;
             display: flex;
             align-items: flex-start;
             justify-content: center;
-            padding: 3rem 1.5rem 4rem;
+            padding: 5rem 1.5rem 4rem;
             position: relative;
         }
 
-        /* шум */
         body::after {
             content: "";
             position: absolute;
@@ -60,13 +85,9 @@
             gap: 2.5rem;
         }
 
-        /* ========= HEADER ========= */
-
-        /* ВАРИАНТ А (левый край) */
         .header-left {
             text-align: left;
         }
-
         .brand-left {
             font-size: clamp(2rem, 2.2rem, 2.4rem);
             font-weight: 600;
@@ -80,7 +101,6 @@
             margin-bottom: 1rem;
             display: inline-block;
         }
-
         .tagline-left {
             font-size: .9rem;
             line-height: 1.4;
@@ -88,8 +108,6 @@
             color: var(--text-dim);
             max-width: 90%;
         }
-
-        /* ========= CONTACT LIST ========= */
 
         .links-block {
             display: flex;
@@ -110,9 +128,12 @@
             transition: .15s all ease;
         }
 
-        .contact-row:hover {
-            background: rgba(255, 255, 255, 0.05);
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 60px rgba(255, 255, 255, 0.07);
+        .contact-left {
+            cursor: pointer;
+        }
+
+        .contact-copy {
+            cursor: pointer;
         }
 
         .contact-left {
@@ -136,13 +157,14 @@
             word-break: break-word;
         }
 
-        .contact-arrow {
+        .contact-copy {
             font-size: .8rem;
             line-height: 1;
             color: var(--text-dim);
             padding-left: .75rem;
-            min-width: 1.25rem;
+            min-width: 2.5rem;
             text-align: right;
+            user-select: none;
         }
 
         footer {
@@ -165,11 +187,6 @@
 
 <main class="wrap">
 
-    <!-- ========================
-         ВЫБЕРИ ОДИН HEADER
-         ======================== -->
-
-    <!-- ВАРИАНТ А: выравнивание слева -->
     <header class="header-left">
         <div class="brand-left">NYM&nbsp;AI</div>
         <div class="tagline-left">
@@ -177,58 +194,48 @@
         </div>
     </header>
 
-    <!-- ВАРИАНТ B: выравнивание по центру (если хочешь этот — оставь, а верхний закомментируй)
-    <header class="header-center">
-      <div class="brand-center">NYM&nbsp;AI</div>
-      <div class="tagline-center">
-        Human + Machine Creative Unit.<br/>
-        Visual R&amp;D • AI Video Direction • Fast Content Systems.
-      </div>
-    </header>
-    -->
-
-    <!-- CONTACTS -->
     <section class="links-block">
 
-        <a class="contact-row" href="https://instagram.com/your_instagram" target="_blank">
+        <div class="contact-row" data-copy="@nympro.ai" data-link="https://instagram.com/nympro.ai">
             <div class="contact-left">
                 <div class="contact-label">Instagram</div>
-                <div class="contact-hint">@your_instagram</div>
+                <div class="contact-hint">@nympro.ai</div>
             </div>
-            <div class="contact-arrow">→</div>
-        </a>
+            <div class="contact-copy">copy</div>
+        </div>
 
-        <a class="contact-row" href="https://t.me/your_telegram" target="_blank">
+        <div class="contact-row" data-copy="@so_engineer" data-link="https://t.me/so_engineer">
             <div class="contact-left">
                 <div class="contact-label">Telegram</div>
-                <div class="contact-hint">@your_telegram (fast)</div>
+                <div class="contact-hint">@so_engineer</div>
             </div>
-            <div class="contact-arrow">→</div>
-        </a>
+            <div class="contact-copy">copy</div>
+        </div>
 
-        <a class="contact-row" href="https://wa.me/1234567890" target="_blank">
+        <div class="contact-row" data-copy="+7 951 889 31 33" data-link="https://wa.me/79518893133">
             <div class="contact-left">
                 <div class="contact-label">WhatsApp</div>
-                <div class="contact-hint">collab / commercial / urgent</div>
+                <div class="contact-hint">+7 951 889 31 33</div>
             </div>
-            <div class="contact-arrow">→</div>
-        </a>
+            <div class="contact-copy">copy</div>
+        </div>
 
-        <a class="contact-row" href="https://youtube.com/your_channel" target="_blank">
+        <div class="contact-row" data-copy="https://www.youtube.com/@Nympro"
+             data-link="https://www.youtube.com/@Nympro">
             <div class="contact-left">
                 <div class="contact-label">YouTube</div>
-                <div class="contact-hint">bts / tests / concepts</div>
+                <div class="contact-hint">@Nympro</div>
             </div>
-            <div class="contact-arrow">→</div>
-        </a>
+            <div class="contact-copy">copy</div>
+        </div>
 
-        <a class="contact-row" href="mailto:you@email.com">
+        <div class="contact-row" data-copy="nympro.one@gmail.com" data-link="mailto:nympro.one@gmail.com">
             <div class="contact-left">
                 <div class="contact-label">Email</div>
-                <div class="contact-hint">you@email.com</div>
+                <div class="contact-hint">nympro.one@gmail.com</div>
             </div>
-            <div class="contact-arrow">→</div>
-        </a>
+            <div class="contact-copy">copy</div>
+        </div>
 
     </section>
 
@@ -237,6 +244,41 @@
     </footer>
 
 </main>
+<script>
+    document.querySelectorAll(".contact-row").forEach(row => {
+        const copyBtn = row.querySelector(".contact-copy");
+        const linkArea = row.querySelector(".contact-left");
+
+        copyBtn.addEventListener("click", e => {
+            e.stopPropagation();
+
+            const copyVal = row.getAttribute("data-copy");
+            navigator.clipboard.writeText(copyVal);
+
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = "copied";
+            copyBtn.classList.add("copied");
+
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+                copyBtn.classList.remove("copied");
+            }, 1000);
+        });
+
+        linkArea.addEventListener("click", e => {
+            e.stopPropagation();
+
+            const linkVal = row.getAttribute("data-link");
+            if (!linkVal) return;
+
+            if (linkVal.startsWith("mailto:")) {
+                window.location.href = linkVal;
+            } else {
+                window.open(linkVal, "_blank");
+            }
+        });
+    });
+</script>
 
 </body>
 </html>
