@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>NYM AI</title>
 
     <style>
@@ -11,7 +11,7 @@
             --bg-color-2: #0c0c0f;
             --text-main: #ffffff;
             --text-dim: #8a8a8a;
-            --border-dim: rgba(255,255,255,0.07);
+            --border-dim: rgba(255, 255, 255, 0.07);
             --radius: 14px;
             --max-width: 420px;
             --font-stack: "Inter", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont,
@@ -26,17 +26,16 @@
         body {
             margin: 0;
             background-color: var(--bg-color-1);
-            background-image:
-                    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0) 60%),
-                    radial-gradient(circle at 80% 10%, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0) 60%),
-                    radial-gradient(circle at 50% 110%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 70%);
+            background-image: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.06) 0%, rgba(0, 0, 0, 0) 60%),
+            radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.03) 0%, rgba(0, 0, 0, 0) 60%),
+            radial-gradient(circle at 50% 110%, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
             color: var(--text-main);
-            font-family: var(--font-stack);
+            font-family: var(--font-stack) sans-serif;
             min-height: 100dvh;
             display: flex;
             align-items: flex-start;
             justify-content: center;
-            padding: 5rem 1.5rem 4rem;
+            padding: 3rem 1.5rem 4rem;
             position: relative;
         }
 
@@ -67,6 +66,7 @@
         .header-left {
             text-align: left;
         }
+
         .brand-left {
             font-size: clamp(2rem, 2.2rem, 2.4rem);
             font-weight: 600;
@@ -76,44 +76,17 @@
             background: radial-gradient(circle at 20% 20%, #ffffff 0%, #9d9fa3 35%, #4a4c50 70%, #1a1a1c 100%);
             -webkit-background-clip: text;
             color: transparent;
-            filter: drop-shadow(0 0 20px rgba(255,255,255,0.08));
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.08));
             margin-bottom: 1rem;
             display: inline-block;
         }
+
         .tagline-left {
             font-size: .9rem;
             line-height: 1.4;
             font-weight: 400;
             color: var(--text-dim);
             max-width: 90%;
-        }
-
-        /* ВАРИАНТ B (по центру) */
-        .header-center {
-            text-align: center;
-        }
-        .brand-center {
-            font-size: clamp(2rem, 2.2rem, 2.4rem);
-            font-weight: 600;
-            line-height: 1.1;
-            letter-spacing: .07em;
-            text-transform: uppercase;
-            background: radial-gradient(circle at 20% 20%, #ffffff 0%, #9d9fa3 35%, #4a4c50 70%, #1a1a1c 100%);
-            -webkit-background-clip: text;
-            color: transparent;
-            filter: drop-shadow(0 0 20px rgba(255,255,255,0.08));
-            margin-bottom: 1rem;
-            display: inline-block;
-        }
-        .tagline-center {
-            font-size: .9rem;
-            line-height: 1.4;
-            font-weight: 400;
-            color: var(--text-dim);
-            /* мы жёстко ограничим ширину и поставим margin:0 auto,
-               чтобы текст не вылезал по бокам и красиво переносился */
-            max-width: 22rem;
-            margin: 0 auto;
         }
 
         /* ========= CONTACT LIST ========= */
@@ -131,17 +104,15 @@
             justify-content: space-between;
             align-items: flex-start;
             padding: .9rem 1rem 1rem;
-            background: rgba(255,255,255,0.02);
+            background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-dim);
             border-radius: 12px;
             transition: .15s all ease;
         }
-        .contact-left {
-            cursor: pointer;
-        }
 
-        .contact-copy {
-            cursor: pointer;
+        .contact-row:hover {
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 60px rgba(255, 255, 255, 0.07);
         }
 
         .contact-left {
@@ -164,17 +135,14 @@
             color: var(--text-dim);
             word-break: break-word;
         }
-        .contact-copy {
+
+        .contact-arrow {
             font-size: .8rem;
             line-height: 1;
             color: var(--text-dim);
             padding-left: .75rem;
-            min-width: 2.5rem;
+            min-width: 1.25rem;
             text-align: right;
-            user-select: none;
-        }
-        .contact-copy.copied {
-            color: #ffffff;
         }
 
         footer {
@@ -186,7 +154,7 @@
             padding-top: 1rem;
         }
 
-        @media (min-width:480px){
+        @media (min-width: 480px) {
             body {
                 padding-top: 4rem;
             }
@@ -222,45 +190,45 @@
     <!-- CONTACTS -->
     <section class="links-block">
 
-        <div class="contact-row" data-copy="@nympro.ai" data-link="https://instagram.com/nympro.ai">
+        <a class="contact-row" href="https://instagram.com/your_instagram" target="_blank">
             <div class="contact-left">
                 <div class="contact-label">Instagram</div>
-                <div class="contact-hint">@nympro.ai</div>
+                <div class="contact-hint">@your_instagram</div>
             </div>
-            <div class="contact-copy">copy</div>
-        </div>
+            <div class="contact-arrow">→</div>
+        </a>
 
-        <div class="contact-row" data-copy="@so_engineer" data-link="https://t.me/so_engineer">
+        <a class="contact-row" href="https://t.me/your_telegram" target="_blank">
             <div class="contact-left">
                 <div class="contact-label">Telegram</div>
-                <div class="contact-hint">@so_engineer</div>
+                <div class="contact-hint">@your_telegram (fast)</div>
             </div>
-            <div class="contact-copy">copy</div>
-        </div>
+            <div class="contact-arrow">→</div>
+        </a>
 
-        <div class="contact-row" data-copy="+7 951 889 31 33" data-link="https://wa.me/79518893133">
+        <a class="contact-row" href="https://wa.me/1234567890" target="_blank">
             <div class="contact-left">
                 <div class="contact-label">WhatsApp</div>
-                <div class="contact-hint">+7 951 889 31 33</div>
+                <div class="contact-hint">collab / commercial / urgent</div>
             </div>
-            <div class="contact-copy">copy</div>
-        </div>
+            <div class="contact-arrow">→</div>
+        </a>
 
-        <div class="contact-row" data-copy="https://www.youtube.com/@Nympro" data-link="https://www.youtube.com/@Nympro">
+        <a class="contact-row" href="https://youtube.com/your_channel" target="_blank">
             <div class="contact-left">
                 <div class="contact-label">YouTube</div>
-                <div class="contact-hint">@Nympro</div>
+                <div class="contact-hint">bts / tests / concepts</div>
             </div>
-            <div class="contact-copy">copy</div>
-        </div>
+            <div class="contact-arrow">→</div>
+        </a>
 
-        <div class="contact-row" data-copy="nympro.one@gmail.com" data-link="mailto:nympro.one@gmail.com">
+        <a class="contact-row" href="mailto:you@email.com">
             <div class="contact-left">
                 <div class="contact-label">Email</div>
-                <div class="contact-hint">nympro.one@gmail.com</div>
+                <div class="contact-hint">you@email.com</div>
             </div>
-            <div class="contact-copy">copy</div>
-        </div>
+            <div class="contact-arrow">→</div>
+        </a>
 
     </section>
 
@@ -269,43 +237,6 @@
     </footer>
 
 </main>
-<script>
-    document.querySelectorAll(".contact-row").forEach(row => {
-      const copyBtn = row.querySelector(".contact-copy");
-      const linkArea = row.querySelector(".contact-left");
-
-      // handle copy
-      copyBtn.addEventListener("click", e => {
-        e.stopPropagation();
-
-        const copyVal = row.getAttribute("data-copy");
-        navigator.clipboard.writeText(copyVal);
-
-        const originalText = copyBtn.textContent;
-        copyBtn.textContent = "copied";
-        copyBtn.classList.add("copied");
-
-        setTimeout(() => {
-          copyBtn.textContent = originalText;
-          copyBtn.classList.remove("copied");
-        }, 1000);
-      });
-
-      // handle link open
-      linkArea.addEventListener("click", e => {
-        e.stopPropagation();
-
-        const linkVal = row.getAttribute("data-link");
-        if (!linkVal) return;
-
-        if (linkVal.startsWith("mailto:")) {
-          window.location.href = linkVal;
-        } else {
-          window.open(linkVal, "_blank");
-        }
-      });
-    });
-  </script>
 
 </body>
 </html>
