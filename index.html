@@ -30,9 +30,6 @@
             cursor: default;
         }
 
-        meta[name="format-detection"] {
-            content: "telephone=no";
-        }
         :root {
             --bg-color-1: #000000;
             --bg-color-2: #0c0c0f;
@@ -88,6 +85,7 @@
         .header-left {
             text-align: left;
         }
+
         .brand-left {
             font-size: clamp(2rem, 2.2rem, 2.4rem);
             font-weight: 600;
@@ -101,6 +99,7 @@
             margin-bottom: 1rem;
             display: inline-block;
         }
+
         .tagline-left {
             font-size: .9rem;
             line-height: 1.4;
@@ -125,21 +124,75 @@
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-dim);
             border-radius: 12px;
-            transition: .15s all ease;
+            transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+            cursor: pointer;
+            backdrop-filter: saturate(115%) blur(4px);
+            -webkit-backdrop-filter: saturate(115%) blur(4px);
+            will-change: transform, box-shadow;
+            overflow: hidden;
         }
 
-        .contact-left {
-            cursor: pointer;
+        .contact-row::before {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            background: conic-gradient(from 0deg, #9be7ff, #b388ff, #00ffc6, #9be7ff);
+            filter: blur(10px);
+            opacity: 0;
+            transition: opacity .2s ease;
+            z-index: 0;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            padding: 1px;
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
         }
 
-        .contact-copy {
-            cursor: pointer;
+        /* subtle inner grid like neural mesh — фиолет, чуть ярче */
+        .contact-row::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0;
+            background: radial-gradient(120px 60px at 20% 30%, rgba(185, 150, 255, 0.10), transparent 60%),
+            radial-gradient(100px 50px at 80% 70%, rgba(175, 130, 255, 0.08), transparent 60%),
+            repeating-linear-gradient(0deg, rgba(200, 170, 255, 0.05) 0 1px, transparent 1px 10px),
+            repeating-linear-gradient(90deg, rgba(190, 160, 255, 0.04) 0 1px, transparent 1px 10px);
+            transition: opacity .25s ease;
+        }
+
+        .contact-row:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.16);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            transform: translateY(-1px);
+        }
+
+        .contact-row:hover::before {
+            opacity: .9;
+        }
+
+        .contact-row:hover::after {
+            opacity: 1;
+        }
+
+        .contact-row:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+        }
+
+        .contact-left, .contact-copy {
+            position: relative;
+            z-index: 1;
         }
 
         .contact-left {
             display: flex;
             flex-direction: column;
             gap: .3rem;
+            cursor: pointer;
         }
 
         .contact-label {
@@ -165,6 +218,12 @@
             min-width: 2.5rem;
             text-align: right;
             user-select: none;
+            cursor: pointer;
+            transition: color .15s ease;
+        }
+
+        .contact-copy.copied {
+            color: #9ad69a;
         }
 
         footer {
@@ -181,16 +240,27 @@
                 padding-top: 4rem;
             }
         }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .contact-row::before {
+                animation: spin 6s linear infinite;
+            }
+        }
     </style>
 </head>
 <body>
 
 <main class="wrap">
-
     <header class="header-left">
         <div class="brand-left">NYM&nbsp;AI</div>
         <div class="tagline-left">
-            Human + Machine Creative Unit. Visual R&D, AI Video Direction, Fast Content Systems.
+            Human + Machine Creative Unit. Visual R&amp;D, AI Video Direction, Fast Content Systems.
         </div>
     </header>
 
@@ -244,14 +314,13 @@
     </footer>
 
 </main>
+
 <script>
     document.querySelectorAll(".contact-row").forEach(row => {
         const copyBtn = row.querySelector(".contact-copy");
-        const linkArea = row.querySelector(".contact-left");
 
         copyBtn.addEventListener("click", e => {
             e.stopPropagation();
-
             const copyVal = row.getAttribute("data-copy");
             navigator.clipboard.writeText(copyVal);
 
@@ -265,12 +334,10 @@
             }, 1000);
         });
 
-        linkArea.addEventListener("click", e => {
-            e.stopPropagation();
-
+        // Клик по всей карточке открывает ссылку
+        row.addEventListener("click", () => {
             const linkVal = row.getAttribute("data-link");
             if (!linkVal) return;
-
             if (linkVal.startsWith("mailto:")) {
                 window.location.href = linkVal;
             } else {
