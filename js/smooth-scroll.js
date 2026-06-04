@@ -29,6 +29,9 @@ export function initSmoothScroll() {
   return lenisInstance;
 }
 
+export function pauseLenis()  { if (lenisInstance) lenisInstance.stop(); }
+export function resumeLenis() { if (lenisInstance) lenisInstance.start(); }
+
 export function scrollToTopInstant() {
   if (lenisInstance) {
     lenisInstance.scrollTo(0, { immediate: true });

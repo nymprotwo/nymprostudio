@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────
 
 import * as THREE from 'three';
+import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 
 // ── Grid config ───────────────────────────────────────
 const UW      = 2400;   // repeating tile-unit width  (px)
@@ -286,6 +287,7 @@ function onPointerUp() {
 // already applies momentum deceleration to the delta stream.
 function onWheel(e) {
   e.preventDefault();
+  e.stopPropagation();
   panX -= e.deltaX * 0.5;
   panY += e.deltaY * 0.5;
 }
@@ -347,7 +349,7 @@ export function initPlayground() {
   elCanvas.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointermove',   onPointerMove);
   window.addEventListener('pointerup',     onPointerUp);
-  window.addEventListener('wheel',         onWheel, { passive: false });
+  elCanvas.addEventListener('wheel',       onWheel, { passive: false, capture: true });
   elCanvas.addEventListener('touchstart',  onTouchStart, { passive: true });
   elCanvas.addEventListener('touchmove',   onTouchMove,  { passive: false });
   elCanvas.addEventListener('touchend',    onTouchEnd,   { passive: true });
@@ -371,6 +373,7 @@ export function showPlayground() {
   requestAnimationFrame(() => pg.classList.add('is-visible'));
   document.body.dataset.page = 'playground';
   active = true;
+  pauseLenis();
 }
 
 export function hidePlayground() {
@@ -382,4 +385,5 @@ export function hidePlayground() {
     document.body.dataset.page = 'home';
   }, 500);
   active = false;
+  resumeLenis();
 }

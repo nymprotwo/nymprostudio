@@ -13,12 +13,12 @@ import { initShift } from './shift.js?v=28';
 import { initMobileInput } from './input-mobile.js?v=28';
 import { initCursorStrip } from './cursor-strip.js?v=28';
 import { initNameHover } from './name-hover.js?v=37';
-import { initSmoothScroll } from './smooth-scroll.js?v=28';
+import { initSmoothScroll } from './smooth-scroll.js?v=29';
 import { initScrollEffects } from './scroll-effects.js?v=36';
 import { initFx } from './fx-switcher.js?v=33';
 import { initSkillsPreview } from './skills-preview.js?v=7';
 import { initContactPopup } from './contact-popup.js?v=2';
-import { initPlayground, showPlayground, hidePlayground } from './playground.js?v=7';
+import { initPlayground, showPlayground, hidePlayground } from './playground.js?v=8';
 
 const splashEl = document.getElementById('splash');
 const barEl = document.getElementById('splash-bar');
