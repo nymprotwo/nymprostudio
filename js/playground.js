@@ -95,7 +95,7 @@ let rafId       = null;
 
 let raycaster, mouseVec, hoveredMat = null;
 
-let elCells, elElapsed, elSwitches, elCanvas;
+let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
 // ── Layout generator (strips, like original le()) ─────
 function buildLayout() {
@@ -290,6 +290,7 @@ function onWheel(e) {
   e.stopPropagation();
   panX -= e.deltaX * 0.5;
   panY += e.deltaY * 0.5;
+  if (elDebug) elDebug.textContent = `dX:${e.deltaX.toFixed(1)}  dY:${e.deltaY.toFixed(1)}  panX:${panX.toFixed(0)}  panY:${panY.toFixed(0)}`;
 }
 
 // Touch (mobile)
@@ -327,6 +328,7 @@ export function initPlayground() {
   elCells    = document.querySelector('[data-pg-cells]');
   elElapsed  = document.querySelector('[data-pg-elapsed]');
   elSwitches = document.querySelector('[data-pg-switches]');
+  elDebug    = document.querySelector('[data-pg-debug]');
   if (!elCanvas) return;
 
   const W = window.innerWidth, H = window.innerHeight;
