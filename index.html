@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en" data-energy="🎭✨⚡️🖤">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06050A">
+<title>NYM — Creative Developer / Interactive Design</title>
+<meta name="description" content="NYM — creative developer building interactive websites, brands and digital products.">
+
+<meta property="og:title" content="NYM — Creative Developer">
+<meta property="og:description" content="Interactive design, websites, brand.">
+<meta property="og:url" content="https://nympro.studio/">
+<meta property="og:type" content="website">
+
+<link rel="icon" href="/favicon.ico">
+<link rel="preload" href="/assets/mask.glb" as="fetch" type="model/gltf-binary" crossorigin>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/css/main.css?v=59">
+
+<!-- Lenis smooth scroll (loaded eagerly so init can find it) -->
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.0.42/dist/lenis.min.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.183.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.183.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<!-- ─────────── SPLASH ─────────── -->
+<div id="splash" class="splash">
+  <div class="splash__inner">
+    <div class="splash__line" data-line="1">&gt; ESTABLISHING CONNECTION</div>
+    <div class="splash__line" data-line="2">&gt; IDENTITY: UNKNOWN</div>
+    <div class="splash__line" data-line="3">&gt; READY</div>
+  </div>
+  <div class="splash__progress"><span id="splash-bar"></span></div>
+</div>
+
+<!-- ─────────── BG NOISE ─────────── -->
+<div class="noise"></div>
+
+<!-- ─────────── HEADER ─────────── -->
+<header class="header">
+  <nav class="header__nav header__nav--left">
+    <button class="header__nav-btn" data-page="about">ABOUT</button>
+    <button class="header__nav-btn" data-overlay="works">WORKS</button>
+  </nav>
+  <button class="header__logo" id="home-btn" type="button" aria-label="Return to home" data-home>
+    <span>NYM</span><em></em>
+  </button>
+  <nav class="header__nav header__nav--right">
+    <button class="header__nav-btn" id="playground-toggle">PLAYGROUND</button>
+    <div class="cpop-wrap">
+      <button class="header__nav-btn" id="contact-toggle" aria-expanded="false">CONTACT</button>
+      <div class="cpop" id="contact-popup" hidden>
+        <div class="cpop__item">
+          <span class="cpop__label">EMAIL</span>
+          <a class="cpop__val cpop__link" href="mailto:nympro.one@gmail.com">nympro.one@gmail.com</a>
+          <button class="cpop__btn cpop__copy" data-copy="nympro.one@gmail.com">COPY</button>
+        </div>
+        <div class="cpop__item">
+          <span class="cpop__label">TELEGRAM</span>
+          <a class="cpop__val cpop__link" href="https://t.me/oneofnym" target="_blank" rel="noopener">@oneofnym</a>
+          <button class="cpop__btn cpop__copy" data-copy="@oneofnym">COPY</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<!-- ─────────── 3D CANVAS ─────────── -->
+<div id="stage"></div>
+
+<!-- ─────────── HERO (full-screen, no scroll) ─────────── -->
+<main class="hero">
+
+  <div class="hero__tag"><span class="dot"></span>AVAILABLE FOR WORK</div>
+
+  <div class="hero__clock" id="clock">
+    <div class="hero__clock-time" id="clock-time">--:-- --</div>
+    <div class="hero__clock-loc">BANGKOK</div>
+    <div class="hero__clock-wx" id="clock-wx">LOADING…</div>
+  </div>
+
+  <div class="hero__rotator" id="rotator">
+    <span class="hero__rotator-line" data-line="0"></span>
+    <span class="hero__rotator-line" data-line="1"></span>
+  </div>
+
+  <div class="hero__mobile-hint" id="mobile-hint">TILT TO MOVE</div>
+
+  <footer class="hero__footer">
+    <button class="hero__shift" id="shift-toggle" type="button" aria-pressed="false" aria-label="Toggle shift">
+      <span class="hero__shift-track"><span class="hero__shift-thumb"></span></span>
+      <span class="hero__shift-label">SHIFT</span>
+    </button>
+    <span class="hero__footer-mid">BUILT WITH CODE &amp; NIGHTMARE</span>
+  </footer>
+
+</main>
+
+<!-- ─────────── PAGES (scroll-revealed) ─────────── -->
+
+<!-- About page -->
+<section class="page" id="page-about" data-page-section="about">
+  <!-- First screen: bottom overlay over the mask -->
+  <div class="page__hero">
+
+    <!-- Bottom-left: tag + big name -->
+    <div class="page__id">
+      <div class="page__tag">/ CREATIVE DEVELOPER — CODE, INTERACTIVE DESIGN</div>
+      <h2 class="page__name">
+        <span class="page__name-line"><span>KIRILL</span></span>
+        <span class="page__name-line"><span>STEPANOV</span></span>
+      </h2>
+    </div>
+
+    <!-- Bottom-center: scroll cue pill -->
+    <div class="page__scroll-cue">
+      <span class="page__scroll-cue-text">SCROLL</span>
+      <span class="page__scroll-cue-arrow" aria-hidden="true"></span>
+    </div>
+
+    <!-- Bottom-right: year badge -->
+    <div class="page__year">
+      <span class="page__year-square"></span>
+      <div class="page__year-text">
+        <span class="page__year-num">2025</span>
+        <span class="page__year-label">CODING SINCE</span>
+      </div>
+    </div>
+
+    <!-- Invisible bottom strip — emits cyan squares on hover -->
+    <div class="page__cursor-strip" id="cursor-strip"></div>
+
+  </div>
+
+  <!-- Big typographic statement (Yuta Abe-style 'fueled by') -->
+  <section class="page__statement">
+    <h3 class="page__statement-text">
+      <span class="page__statement-line" data-scramble>A creative dev</span>
+      <span class="page__statement-line">
+        <span data-scramble>fueled by</span>
+        <span class="page__statement-accent" data-scramble>code &amp; nightmares</span>
+      </span>
+    </h3>
+  </section>
+
+  <!-- Second screen: content -->
+  <div class="page__content">
+    <div class="page__content-tag">WHO I AM</div>
+    <p class="page__bio">
+      Independent creative developer based in Bangkok.
+      I build digital things that don't look like everyone else's — often
+      with a layer of motion, AI, or controlled chaos that makes people
+      stop scrolling.
+    </p>
+
+    <div class="page__content-tag">WHAT ARE YOU LOOKING FOR?</div>
+    <ul class="skills">
+      <li><span>01</span> LANDING PAGE</li>
+      <li><span>02</span> FULL WEBSITE</li>
+      <li><span>03</span> AI-POWERED PRODUCT</li>
+      <li><span>04</span> BUSINESS AUTOMATION</li>
+      <li><span>05</span> WEB APPS &amp; GAMES <em class="skills__bonus">— LIGHTWEIGHT, FUN</em></li>
+    </ul>
+
+    <div class="page__content-tag">CURRENTLY</div>
+    <p class="page__bio">
+      Open for serious work, ambitious ideas, and unhinged experiments.
+      The weirder, the better. Based in Bangkok, building for clients worldwide.
+    </p>
+  </div>
+</section>
+
+<!-- ─────────── OVERLAYS (works + contact — to refactor later) ─────────── -->
+
+<!-- Works overlay -->
+<div class="overlay" id="overlay-works" data-overlay-panel="works">
+  <button class="overlay__close" data-close-overlay aria-label="Close">×</button>
+  <div class="overlay__inner">
+    <div class="overlay__tag">&gt; SELECTED WORKS</div>
+    <h2 class="overlay__title">A few things I made.</h2>
+    <div class="works">
+      <a class="work" href="#" data-num="01">
+        <div class="work__media"></div>
+        <div class="work__meta"><span class="work__title">Project Title</span><span class="work__type">WEB · 2026</span></div>
+      </a>
+      <a class="work" href="#" data-num="02">
+        <div class="work__media"></div>
+        <div class="work__meta"><span class="work__title">Another Project</span><span class="work__type">BRAND · 2026</span></div>
+      </a>
+      <a class="work" href="#" data-num="03">
+        <div class="work__media"></div>
+        <div class="work__meta"><span class="work__title">Yet Another</span><span class="work__type">3D · 2025</span></div>
+      </a>
+      <a class="work" href="#" data-num="04">
+        <div class="work__media"></div>
+        <div class="work__meta"><span class="work__title">Fourth Thing</span><span class="work__type">LANDING · 2025</span></div>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Contact overlay REMOVED — replaced with inline popup in header -->
+<!-- <div class="overlay" id="overlay-contact" data-overlay-panel="contact"> -->
+<div style="display:none" aria-hidden="true"><div class="cmq-layout">
+
+    <!-- Mask SVG used inline via <use> — defined once here -->
+    <svg width="0" height="0" style="position:absolute">
+      <defs>
+        <symbol id="guy-mask" viewBox="0 0 50 68" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M25 3C37 3 43 12 43 24C43 37 39 43 35 47C32 51 29 53 25 53C21 53 18 51 15 47C11 43 7 37 7 24C7 12 13 3 25 3Z" stroke-width="1.4"/>
+          <path d="M11 18Q16 12 21 16" stroke-width="1.2"/>
+          <path d="M29 16Q34 12 39 18" stroke-width="1.2"/>
+          <path d="M13 23Q17 19 21 23Q17 27 13 23Z" stroke-width="1.1"/>
+          <path d="M29 23Q33 19 37 23Q33 27 29 23Z" stroke-width="1.1"/>
+          <path d="M23 29Q24 33 25 34Q26 33 27 29" stroke-width="0.9"/>
+          <path d="M17 39Q21 35 25 37Q29 35 33 39" stroke-width="1.2"/>
+          <path d="M17 39C13 43 15 50 18 48" stroke-width="1.2"/>
+          <path d="M33 39C37 43 35 50 32 48" stroke-width="1.2"/>
+          <path d="M18 48Q21 58 25 65Q29 58 32 48" stroke-width="1.3"/>
+          <circle cx="25" cy="11" r="1.8" fill="currentColor" stroke="none"/>
+        </symbol>
+      </defs>
+    </svg>
+
+    <!-- Marquee rows -->
+    <div class="cmq-rows">
+
+      <div class="cmq cmq--left">
+        <div class="cmq__track">
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">nympro.one@gmail.com</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">nympro.one@gmail.com</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">nympro.one@gmail.com</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">nympro.one@gmail.com</span><span class="cmq__sep">—</span>
+        </div>
+      </div>
+
+      <div class="cmq cmq--right">
+        <div class="cmq__track">
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">@oneofnym</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">@oneofnym</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">@oneofnym</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">@oneofnym</span><span class="cmq__sep">—</span>
+        </div>
+      </div>
+
+      <!-- Mask row -->
+      <div class="cmq cmq--left cmq--masks">
+        <div class="cmq__track">
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+          <svg class="cmq__mask"><use href="#guy-mask"/></svg><span class="cmq__sep">·</span>
+        </div>
+      </div>
+
+      <div class="cmq cmq--left">
+        <div class="cmq__track">
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">nympro.one@gmail.com</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">nympro.one@gmail.com</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">nympro.one@gmail.com</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">nympro.one@gmail.com</span><span class="cmq__sep">—</span>
+        </div>
+      </div>
+
+      <div class="cmq cmq--right">
+        <div class="cmq__track">
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">@oneofnym</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">@oneofnym</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">@oneofnym</span><span class="cmq__sep">—</span>
+          <span class="cmq__word">GET IN TOUCH</span><span class="cmq__sep">—</span>
+          <span class="cmq__accent">@oneofnym</span><span class="cmq__sep">—</span>
+        </div>
+      </div>
+
+    </div><!-- /cmq-rows -->
+
+    <!-- Bottom contact buttons -->
+    <div class="cmq-cta">
+      <a class="cmq-btn" href="mailto:nympro.one@gmail.com">
+        EMAIL
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 17L17 7M9 7h8v8"/></svg>
+      </a>
+      <a class="cmq-btn" href="https://t.me/oneofnym" target="_blank" rel="noopener">
+        TELEGRAM
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 17L17 7M9 7h8v8"/></svg>
+      </a>
+    </div>
+
+  </div></div><!-- /hidden legacy markup -->
+
+<!-- Scan line container — created on demand by JS -->
+
+<!-- ── Playground page ───────────────────────────── -->
+<div id="page-playground" style="display:none">
+  <canvas id="playground-canvas"></canvas>
+
+  <!-- Stats UI — bottom corners like the original -->
+  <div class="pg-ui__corner pg-ui__corner--bl">
+    <div class="pg-ui__brand">PLAYGROUND</div>
+    <div class="pg-ui__sub">— Visual sketches</div>
+  </div>
+  <div class="pg-ui__corner pg-ui__corner--br">
+    <span class="pg-ui__lbl">CELLS</span>
+    <span class="pg-ui__num" data-pg-cells>—</span>
+    <span class="pg-ui__lbl">ELAPSED</span>
+    <span class="pg-ui__num" data-pg-elapsed>00:00</span>
+    <span class="pg-ui__lbl">SWITCHES</span>
+    <span class="pg-ui__num" data-pg-switches>000</span>
+  </div>
+
+  <!-- Close button -->
+  <button class="pg-close" id="pg-close" aria-label="Close playground">
+    <span></span><span></span>
+  </button>
+
+  <!-- Drag hint -->
+  <div class="pg-hint">DRAG TO ROTATE</div>
+</div>
+
+<script type="module" src="/js/main.js?v=59"></script>
+</body>
+</html>
