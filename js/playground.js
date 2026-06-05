@@ -169,14 +169,46 @@ void main(){
   gl_FragColor = col;
 }`;
 
+// ── Post-process: barrel distortion on scroll ─────────
+const DISTORT_VERT = `
+varying vec2 vUv;
+void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+
+const DISTORT_FRAG = `
+uniform sampler2D tDiffuse;
+uniform float     distort;   // 0..1
+varying vec2      vUv;
+void main(){
+  vec2 uv = vUv * 2.0 - 1.0;
+  // Barrel (sphere) distortion
+  float k  = distort * 0.18;
+  float r2 = dot(uv, uv);
+  uv *= 1.0 + k * r2;
+  // Slight zoom-out so corners don't black out
+  uv *= 1.0 + distort * 0.05;
+  uv = (uv + 1.0) * 0.5;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+    gl_FragColor = vec4(0.024, 0.02, 0.035, 1.0); // bg color
+  } else {
+    gl_FragColor = texture2D(tDiffuse, uv);
+  }
+}`;
+
 // ── State ─────────────────────────────────────────────
 let renderer, scene, camera;
+let renderTarget = null;
+let distortScene = null, distortCam = null, distortMat = null;
+
 let textures   = [];
 let baseTiles  = [];   // {x,y,w,h} layout
 let tileGroups = [];   // per base-tile: {mat, copies[9 meshes], userData}
 
 let panX = UW/2, panY = UH/2;  // camera target (unbounded)
 let velX = 0, velY = 0;
+
+// Spring state for distortion
+let distortVal = 0;   // current distortion strength
+let distortSpd = 0;   // spring velocity
 
 let isDragging = false;
 let prevMouse  = {x:0,y:0};
@@ -364,6 +396,16 @@ function animate(ts) {
   const cy = ((panY % UH) + UH) % UH;
   camera.position.set(cx, -cy, 1);
 
+  // ── Distortion spring ──────────────────────────────────
+  // Target strength driven by current scroll speed
+  const speed        = Math.sqrt(velX*velX + velY*velY);
+  const distortTarget = Math.min(speed * 0.045, 1.0);
+  // Spring: pull toward target, decay oscillation
+  distortSpd += (distortTarget - distortVal) * 0.22;
+  distortSpd *= 0.62;
+  distortVal  = Math.max(0, distortVal + distortSpd);
+  if (distortMat) distortMat.uniforms.distort.value = distortVal;
+
   // Elapsed display
   if (elElapsed) {
     const m = Math.floor(elapsed/60).toString().padStart(2,'0');
@@ -407,7 +449,15 @@ function animate(ts) {
     mat.uniforms.hover.value = g.hoverVal;
   });
 
-  renderer.render(scene, camera);
+  // ── Two-pass render: scene → target → distort quad → screen ──
+  if (distortMat && renderTarget) {
+    renderer.setRenderTarget(renderTarget);
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
+    renderer.render(distortScene, distortCam);
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
 // ── Input ─────────────────────────────────────────────
@@ -499,6 +549,8 @@ function onResize() {
   camera.left   = -W/2*ZOOM;  camera.right  = W/2*ZOOM;
   camera.top    =  H/2*ZOOM;  camera.bottom = -H/2*ZOOM;
   camera.updateProjectionMatrix();
+  if (renderTarget) renderTarget.setSize(W * Math.min(devicePixelRatio, 2),
+                                          H * Math.min(devicePixelRatio, 2));
 }
 
 // ── Public API ────────────────────────────────────────
@@ -513,11 +565,29 @@ export function initPlayground() {
   const W = window.innerWidth, H = window.innerHeight;
 
   renderer = new THREE.WebGLRenderer({ canvas: elCanvas, antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const PR = Math.min(devicePixelRatio, 2);
+  renderer.setPixelRatio(PR);
   renderer.setSize(W, H);
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x060509);
+
+  // ── Post-process setup ──
+  renderTarget = new THREE.WebGLRenderTarget(W * PR, H * PR, {
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    format: THREE.RGBAFormat,
+  });
+  distortMat = new THREE.ShaderMaterial({
+    uniforms: { tDiffuse: { value: renderTarget.texture }, distort: { value: 0 } },
+    vertexShader:   DISTORT_VERT,
+    fragmentShader: DISTORT_FRAG,
+    depthTest: false, depthWrite: false,
+  });
+  distortScene = new THREE.Scene();
+  distortCam   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quad   = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), distortMat);
+  distortScene.add(quad);
 
   // Orthographic camera: zoomed out so ZOOM× more grid is visible
   camera = new THREE.OrthographicCamera(-W/2*ZOOM, W/2*ZOOM, H/2*ZOOM, -H/2*ZOOM, 0.1, 100);
