@@ -292,26 +292,38 @@ function buildLayout() {
 
   const tiles = [];
   for (const col of cols) {
-    // Negative start so tiles cover y=0 — no seam gap when grid tiles vertically
-    let y = -(Math.random() * MAX_TH * 0.6);
-    while (y < UH - GAP) {
-      const h = Math.min(MIN_TH + Math.random() * (MAX_TH - MIN_TH), UH - y);
+    // Random vertical offset (stagger) per column.
+    // CRITICAL: column must span EXACTLY UH grid units so the seam between
+    // vertical copies aligns perfectly (no overlap, no extra gap).
+    const stagger = Math.random() * MAX_TH * 0.5;
+    let y         = -stagger;
+    const yEnd    = UH - stagger;          // column ends here in grid coords
 
+    // Pre-generate row heights, then stretch the last one to land exactly on yEnd
+    const rows = [];
+    let cursor = y;
+    while (true) {
+      const remain = yEnd - cursor;
+      if (remain < MIN_TH) break;          // not enough room for another tile
+      let h = MIN_TH + Math.random() * (MAX_TH - MIN_TH);
+      if (remain - h < MIN_TH) h = remain; // last tile: fill all remaining space
+      rows.push(h);
+      cursor += h;
+      if (cursor >= yEnd) break;
+    }
+    // If a tiny remainder is left (shouldn't happen often), add it to last row
+    if (rows.length && cursor < yEnd) rows[rows.length - 1] += yEnd - cursor;
+
+    // Now place tiles using fixed row heights
+    for (const h of rows) {
       if (col.splitP > 0 && Math.random() < col.splitP) {
-        // Two side-by-side tiles: GAP on all outer edges, GAP between them
+        // Two side-by-side tiles with full GAP on outer + between
         const subW = (col.w - GAP * 2) / 2;
         tiles.push({ x: col.x + GAP/2,              y: y + GAP/2, w: subW, h: h - GAP });
         tiles.push({ x: col.x + GAP/2 + subW + GAP, y: y + GAP/2, w: subW, h: h - GAP });
       } else {
-        // ~25% chance: tile "breaks out" — slightly wider than its column
-        const breakout = Math.random() < 0.25
-          ? (0.18 + Math.random() * 0.22)   // 18–40% wider
-          : 0;
-        const extra = col.w * breakout;
-        // Shift left by half the extra so it expands on both sides
-        const bx = col.x + GAP/2 - extra / 2;
-        const bw = col.w - GAP + extra;
-        tiles.push({ x: bx, y: y + GAP/2, w: bw, h: h - GAP, breakout });
+        // Single tile, fills the column width — no random expansion
+        tiles.push({ x: col.x + GAP/2, y: y + GAP/2, w: col.w - GAP, h: h - GAP });
       }
       y += h;
     }
