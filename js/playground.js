@@ -21,8 +21,8 @@ const WIDE_COL_B = 4;   // balanced chaos (55% split)
 const WIDE_COL_C = 7;   // mostly 2-small (75% split)
 
 // Image cycling
-const CYCLE_MIN = 5;
-const CYCLE_MAX = 16;
+const CYCLE_MIN = 2;
+const CYCLE_MAX = 8;
 
 // Auto-scroll speed (world units/frame upward)
 const AUTO_SCROLL = 0.35;
@@ -161,7 +161,7 @@ void main(){
   // inner glow — brightens near edges when hovered
   col.rgb += accent * ss(0.6, 0.98, bd) * hover * 0.35;
   // thin outline at very edge
-  col.rgb += accent * ss(0.94, 0.97, bd) * hover * 0.9;
+  col.rgb += accent * ss(0.965, 0.985, bd) * hover * 1.2;
 
   gl_FragColor = col;
 }`;
@@ -304,7 +304,7 @@ function buildScene() {
       copies,
       idxA, idxB,
       cycleEvery:  CYCLE_MIN + Math.random()*(CYCLE_MAX-CYCLE_MIN),
-      lastSwitch:  Math.random()*CYCLE_MAX,
+      lastSwitch:  -Math.random() * CYCLE_MAX,   // negative = fires immediately, staggered
       transitioning: false,
       progress:    0,
       hoverVal:    0,
@@ -323,7 +323,7 @@ function animate(ts) {
   const elapsed = (ts - startTime) / 1000;
 
   // Auto-scroll upward (continuous slow drift)
-  panY -= AUTO_SCROLL;
+  panY += AUTO_SCROLL;
 
   // Apply inertia
   panX += velX;
@@ -349,7 +349,7 @@ function animate(ts) {
     const mat = g.mat;
 
     if (g.transitioning) {
-      g.progress = Math.min(g.progress + 0.009, 1);
+      g.progress = Math.min(g.progress + 0.014, 1);
       mat.uniforms.progress.value = g.progress;
       if (g.progress >= 1) {
         g.transitioning = false;
