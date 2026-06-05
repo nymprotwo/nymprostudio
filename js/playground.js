@@ -21,8 +21,11 @@ const WIDE_COL_B = 4;   // balanced chaos (55% split)
 const WIDE_COL_C = 7;   // mostly 2-small (75% split)
 
 // Image cycling
-const CYCLE_MIN = 3;
-const CYCLE_MAX = 9;
+const CYCLE_MIN = 5;
+const CYCLE_MAX = 16;
+
+// Auto-scroll speed (world units/frame upward)
+const AUTO_SCROLL = 0.35;
 
 const IMAGES = [
   './assets/playground/b3.webp',
@@ -60,13 +63,11 @@ uniform float     hover;
 uniform float     tileAR;   // tile width / height
 uniform float     arA;      // texA width / height
 uniform float     arB;      // texB width / height
+uniform int       effectId; // 0-7 random per transition
 varying vec2      vUv;
 
 float rand(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
 
-// object-fit: cover — fills tile, crops overflow, no stretching
-// tile > tex  →  tile is wider  →  fit width, crop height  →  shrink y range
-// tile < tex  →  tile is taller →  fit height, crop width  →  shrink x range
 vec2 coverUV(vec2 uv, float tile, float tex) {
   vec2 c = uv - 0.5;
   if (tile > tex) { c.y *= tex / tile; }
@@ -74,21 +75,94 @@ vec2 coverUV(vec2 uv, float tile, float tex) {
   return c + 0.5;
 }
 
+// Smooth step helper
+float ss(float a, float b, float x){ return smoothstep(a, b, x); }
+
 void main(){
-  vec2  bUv = floor(vUv*8.0)/8.0;
-  float n   = rand(bUv);
-  float t   = clamp((progress*1.4 - n*0.4)/1.0, 0.0, 1.0);
-  t = t*t*(3.0-2.0*t);
+  // ── Hover: zoom UV slightly inside tile ──────────────
+  float hz   = 1.0 - hover * 0.045;
+  vec2  huv  = (vUv - 0.5) * hz + 0.5;
 
-  vec4 colA = texture2D(texA, coverUV(vUv, tileAR, arA));
-  vec4 colB = texture2D(texB, coverUV(vUv, tileAR, arB));
-  vec4 col  = mix(colA, colB, t);
+  vec4 colA = texture2D(texA, coverUV(huv, tileAR, arA));
+  vec4 colB = texture2D(texB, coverUV(huv, tileAR, arB));
 
-  // soft edge (gap illusion)
+  // ── Transition blend ──────────────────────────────────
+  float t = 0.0;
+
+  if (effectId == 0) {
+    // 8×8 block dissolve (original)
+    vec2 bUv = floor(vUv*8.0)/8.0;
+    float n  = rand(bUv);
+    t = clamp((progress*1.4 - n*0.4), 0.0, 1.0);
+    t = t*t*(3.0-2.0*t);
+
+  } else if (effectId == 1) {
+    // Fine 16×16 block scatter
+    vec2 bUv = floor(vUv*16.0)/16.0;
+    float n  = rand(bUv);
+    t = clamp((progress*1.5 - n*0.5), 0.0, 1.0);
+    t = t*t*(3.0-2.0*t);
+
+  } else if (effectId == 2) {
+    // Radial scatter from center
+    float dist = length(vUv - 0.5) * 1.414;
+    float n    = rand(floor(vUv*12.0)/12.0) * 0.3;
+    t = ss(0.0, 1.0, clamp((progress*1.3 - dist*0.6 - n), 0.0, 1.0));
+
+  } else if (effectId == 3) {
+    // Left-edge wipe with glitch noise
+    float n  = rand(floor(vUv*vec2(1.0, 20.0))/vec2(1.0,20.0)) * 0.08;
+    float glitch = rand(vec2(floor(vUv.y*30.0), progress*50.0)) * 0.07;
+    t = ss(0.0, 0.12, clamp(progress - vUv.x*0.85 + n + glitch, 0.0, 1.0));
+
+  } else if (effectId == 4) {
+    // Diagonal wipe top-left → bottom-right
+    float diag = (vUv.x + vUv.y) * 0.5;
+    float n    = rand(floor(vUv*10.0)/10.0) * 0.15;
+    t = ss(0.0, 0.18, clamp(progress*1.3 - diag + n, 0.0, 1.0));
+
+  } else if (effectId == 5) {
+    // Large 4×4 chunky blocks glitch
+    vec2 bUv = floor(vUv*4.0)/4.0;
+    float n  = rand(bUv + vec2(0.1, progress));
+    float s  = rand(bUv) * 0.3;
+    t = clamp((progress*1.3 - n*0.3 - s), 0.0, 1.0);
+    t = t*t*(3.0-2.0*t);
+
+  } else if (effectId == 6) {
+    // Horizontal scan-line glitch
+    float line  = floor(vUv.y * 24.0) / 24.0;
+    float n     = rand(vec2(line, floor(progress*40.0)));
+    float strip = rand(vec2(line, 0.5));
+    float glitchX = (n - 0.5) * 0.08 * (1.0 - abs(progress - 0.5)*2.0);
+    vec2  sUv = vUv + vec2(glitchX, 0.0);
+    colA = texture2D(texA, coverUV(sUv, tileAR, arA));
+    colB = texture2D(texB, coverUV(sUv, tileAR, arB));
+    float delay = strip * 0.5;
+    t = ss(delay, delay + 0.5, progress);
+
+  } else {
+    // Scatter from right edge (effectId == 7)
+    float dist = (1.0 - vUv.x);
+    float n    = rand(floor(vUv*vec2(1.0,14.0))/vec2(1.0,14.0)) * 0.25;
+    t = ss(0.0, 0.2, clamp(progress*1.2 - dist*0.7 + n, 0.0, 1.0));
+  }
+
+  vec4 col = mix(colA, colB, clamp(t, 0.0, 1.0));
+
+  // ── Soft edge vignette ────────────────────────────────
   vec2 uvc  = abs(vUv-0.5)*2.0;
   col.rgb  *= 1.0 - pow(max(uvc.x,uvc.y),5.0)*0.25;
 
-  col.rgb  += hover*0.18;
+  // ── Hover: inner glow + thin colored border ───────────
+  vec3 accent = vec3(0.22, 0.62, 1.0);  // site cyan-blue
+  // border distance from edge (0 at center, 1 at edge)
+  float bd = max(abs(vUv.x-0.5), abs(vUv.y-0.5)) * 2.0;
+  // inner glow — brightens near edges when hovered
+  col.rgb += accent * ss(0.6, 0.98, bd) * hover * 0.35;
+  // thin outline at very edge
+  col.rgb += accent * ss(0.94, 0.97, bd) * hover * 0.9;
+
   gl_FragColor = col;
 }`;
 
@@ -201,6 +275,7 @@ function buildScene() {
         tileAR:   { value: tile.w / tile.h },
         arA:      { value: tA.userData.ar || 1 },
         arB:      { value: tB.userData.ar || 1 },
+        effectId: { value: Math.floor(Math.random() * 8) },
       },
       vertexShader:   VERT,
       fragmentShader: FRAG,
@@ -247,6 +322,9 @@ function animate(ts) {
 
   const elapsed = (ts - startTime) / 1000;
 
+  // Auto-scroll upward (continuous slow drift)
+  panY -= AUTO_SCROLL;
+
   // Apply inertia
   panX += velX;
   panY += velY;
@@ -271,7 +349,7 @@ function animate(ts) {
     const mat = g.mat;
 
     if (g.transitioning) {
-      g.progress = Math.min(g.progress + 0.016, 1);
+      g.progress = Math.min(g.progress + 0.009, 1);
       mat.uniforms.progress.value = g.progress;
       if (g.progress >= 1) {
         g.transitioning = false;
@@ -286,9 +364,11 @@ function animate(ts) {
         mat.uniforms.progress.value = 0;
       }
     } else if (elapsed - g.lastSwitch > g.cycleEvery) {
-      g.lastSwitch   = elapsed;
+      g.lastSwitch    = elapsed;
+      g.cycleEvery    = CYCLE_MIN + Math.random() * (CYCLE_MAX - CYCLE_MIN);
       g.transitioning = true;
-      g.progress     = 0;
+      g.progress      = 0;
+      mat.uniforms.effectId.value = Math.floor(Math.random() * 8);
       switchCount++;
       if (elSwitches) elSwitches.textContent = String(switchCount).padStart(3,'0');
     }
