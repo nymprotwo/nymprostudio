@@ -290,38 +290,26 @@ function buildLayout() {
     x += w;
   }
 
-  // Per-column "character" — forces variety so adjacent columns aren't twins.
-  // Cycle through 4 distinct height profiles across columns.
-  const PROFILES = [
-    { min: 200, max: 420, name: 'tall'  },  // big-tile heavy
-    { min: 130, max: 240, name: 'short' },  // small-tile heavy
-    { min: 160, max: 380, name: 'mixed' },  // varied
-    { min: 110, max: 200, name: 'tiny'  },  // many small
-  ];
-  // Shuffle profile assignment so it's not predictable but neighbors differ.
-  // Use index-based interleaving: c=0→0, c=1→2, c=2→1, c=3→3, c=4→0...
-  const ORDER = [0, 2, 1, 3];
+  // Per-column TILE COUNT — controls visual rhythm. Strict alternation between
+  // "few big tiles" and "many small tiles" so adjacent columns can never look alike.
+  // Pattern: 3, 6, 4, 7, 3, 6, 4, 7, 3 → always big change between neighbors.
+  const COUNTS = [3, 6, 4, 7];
 
   const tiles = [];
   cols.forEach((col, colIdx) => {
-    const prof = PROFILES[ORDER[colIdx % ORDER.length]];
-    const stagger = Math.random() * prof.max * 0.5;
-    let y         = -stagger;
-    const yEnd    = UH - stagger;
-
-    // Pre-generate row heights with this column's profile
-    const rows = [];
-    let cursor = y;
-    while (true) {
-      const remain = yEnd - cursor;
-      if (remain < prof.min) break;
-      let h = prof.min + Math.random() * (prof.max - prof.min);
-      if (remain - h < prof.min) h = remain;
-      rows.push(h);
-      cursor += h;
-      if (cursor >= yEnd) break;
+    const targetN = COUNTS[colIdx % COUNTS.length];
+    // Distribute UH across N tiles with ±20% jitter per row, then normalize to fit
+    const baseH = UH / targetN;
+    let rows    = [];
+    for (let i = 0; i < targetN; i++) {
+      rows.push(baseH * (0.8 + Math.random() * 0.4));    // 80–120% of baseH
     }
-    if (rows.length && cursor < yEnd) rows[rows.length - 1] += yEnd - cursor;
+    // Normalize so total = UH exactly (seam stays perfect)
+    const sum = rows.reduce((a, b) => a + b, 0);
+    rows = rows.map(h => h * UH / sum);
+
+    const stagger = Math.random() * baseH * 0.4;
+    let y         = -stagger;
 
     // Now place tiles using fixed row heights
     for (const h of rows) {
