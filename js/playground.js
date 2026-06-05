@@ -9,12 +9,13 @@ import * as THREE from 'three';
 import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 
 // ── Grid config ───────────────────────────────────────
-const UW      = 2400;   // repeating tile-unit width  (px)
-const UH      = 1800;   // repeating tile-unit height (px)
-const N_COLS  = 10;     // vertical strips  → colW = 240px, tile = ~188px
-const GAP     = 52;     // gap between tiles (px)
-const MIN_TH  = 130;    // min tile height (px)
-const MAX_TH  = 420;    // max tile height (px)
+const UW       = 2400;  // repeating tile-unit width  (px)
+const UH       = 1800;  // repeating tile-unit height (px)
+const N_COLS   = 9;     // regular columns; 1 extra feature col = 2× wide → 11 units total
+const GAP      = 52;    // gap between tiles (px)
+const MIN_TH   = 130;   // min tile height (px)
+const MAX_TH   = 420;   // max tile height (px)
+const WIDE_COL = 2;     // index (0-based) of the 2× wide feature column
 
 // Image cycling
 const CYCLE_MIN = 3;
@@ -110,23 +111,39 @@ let raycaster, mouseVec, hoveredMat = null;
 
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
-// ── Layout generator (strips, like original le()) ─────
+// ── Layout generator ──────────────────────────────────
+// N_COLS regular columns + 1 feature column (2× wide) = N_COLS+2 unit-widths total.
 function buildLayout() {
-  const colW = UW / N_COLS;
+  const unitW  = UW / (N_COLS + 2);   // one regular-column unit
+  const featW  = unitW * 2;           // feature column = 2 units
+  const totalCols = N_COLS + 1;       // 9 regular + 1 feature
+
+  // Build column descriptors
+  const cols = [];
+  let x = 0;
+  for (let c = 0; c < totalCols; c++) {
+    const feat = (c === WIDE_COL);
+    const w    = feat ? featW : unitW;
+    cols.push({ x, w, feat });
+    x += w;
+  }
+
   const tiles = [];
-  for (let c = 0; c < N_COLS; c++) {
+  for (const col of cols) {
     let y = 0;
     while (y < UH - GAP) {
-      const h = Math.min(
-        MIN_TH + Math.random() * (MAX_TH - MIN_TH),
-        UH - y
-      );
-      tiles.push({
-        x: c * colW + GAP/2,
-        y: y + GAP/2,
-        w: colW - GAP,
-        h: h - GAP,
-      });
+      const h = Math.min(MIN_TH + Math.random() * (MAX_TH - MIN_TH), UH - y);
+
+      if (col.feat && Math.random() < 0.4) {
+        // ── 2 small tiles side-by-side inside the feature column ──
+        // Outer gap = GAP/2 on each edge; inner gap = GAP/2 between them.
+        const subW = (col.w - GAP * 1.5) / 2;
+        tiles.push({ x: col.x + GAP/2,              y: y + GAP/2, w: subW, h: h - GAP });
+        tiles.push({ x: col.x + GAP/2 + subW + GAP/2, y: y + GAP/2, w: subW, h: h - GAP });
+      } else {
+        // ── Normal full-width tile ──
+        tiles.push({ x: col.x + GAP/2, y: y + GAP/2, w: col.w - GAP, h: h - GAP });
+      }
       y += h;
     }
   }
