@@ -417,15 +417,17 @@ function animate(ts) {
   const cy = ((panY % UH) + UH) % UH;
   camera.position.set(cx, -cy, 1);
 
-  // ── Distortion spring ──────────────────────────────────
-  // Target strength driven by current scroll speed
-  const speed        = Math.sqrt(velX*velX + velY*velY);
-  const distortTarget = Math.min(speed * 0.045, 1.0);
-  // Spring: pull toward target, decay oscillation
-  distortSpd += (distortTarget - distortVal) * 0.22;
-  distortSpd *= 0.62;
-  distortVal  = Math.max(0, distortVal + distortSpd);
-  if (distortPass) distortPass.uniforms.distort.value = distortVal;
+  // ── Zoom spring (camera.zoom) ─────────────────────────
+  // When scrolling: zoom out (< 1). When idle: spring back to 1.
+  // Only user-driven velocity (velX/velY), not the constant auto-scroll
+  const speed       = Math.sqrt(velX*velX + velY*velY);
+  const zoomTarget  = 1.0 - Math.min(speed * 0.014, 0.12);  // max ~12% zoom-out
+  distortSpd += (zoomTarget - distortVal) * 0.18;
+  distortSpd *= 0.68;
+  distortVal += distortSpd;
+  distortVal  = Math.max(0.8, Math.min(1.0, distortVal));
+  camera.zoom = distortVal;
+  camera.updateProjectionMatrix();
 
   // Elapsed display
   if (elElapsed) {
