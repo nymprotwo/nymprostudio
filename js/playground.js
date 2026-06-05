@@ -11,10 +11,10 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 // ── Grid config ───────────────────────────────────────
 const UW      = 2400;   // repeating tile-unit width  (px)
 const UH      = 1800;   // repeating tile-unit height (px)
-const N_COLS  = 9;      // vertical strips
-const GAP     = 30;     // gap between tiles (px)
-const MIN_TH  = 160;    // min tile height (px)
-const MAX_TH  = 560;    // max tile height (px)
+const N_COLS  = 12;     // vertical strips
+const GAP     = 40;     // gap between tiles (px)
+const MIN_TH  = 100;    // min tile height (px)
+const MAX_TH  = 360;    // max tile height (px)
 
 // Image cycling
 const CYCLE_MIN = 3;
@@ -138,6 +138,10 @@ function loadTextures() {
     loader.load(src, t => {
       t.colorSpace = THREE.SRGBColorSpace;
       t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+      // Store AR at load time — image.width/height is reliable here
+      const img = t.image;
+      t.userData.ar = (img.naturalWidth || img.width || 1) /
+                      (img.naturalHeight || img.height || 1);
       res(t);
     },
       null, () => res(null));
@@ -164,8 +168,8 @@ function buildScene() {
         progress: { value: 0 },
         hover:    { value: 0 },
         tileAR:   { value: tile.w / tile.h },
-        arA:      { value: tA.image.width / tA.image.height },
-        arB:      { value: tB.image.width / tB.image.height },
+        arA:      { value: tA.userData.ar || 1 },
+        arB:      { value: tB.userData.ar || 1 },
       },
       vertexShader:   VERT,
       fragmentShader: FRAG,
@@ -246,8 +250,8 @@ function animate(ts) {
         const tA = textures[g.idxA], tB = textures[g.idxB];
         mat.uniforms.texA.value     = tA;
         mat.uniforms.texB.value     = tB;
-        mat.uniforms.arA.value      = tA.image.width / tA.image.height;
-        mat.uniforms.arB.value      = tB.image.width / tB.image.height;
+        mat.uniforms.arA.value      = tA.userData.ar || 1;
+        mat.uniforms.arB.value      = tB.userData.ar || 1;
         mat.uniforms.progress.value = 0;
       }
     } else if (elapsed - g.lastSwitch > g.cycleEvery) {
