@@ -588,16 +588,17 @@ export function initPlayground() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x060509);
 
-  // ── EffectComposer post-processing ──
-  composer    = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));   // pass 1: render scene
-  distortPass = new ShaderPass(DistortShader);        // pass 2: barrel + CA
-  distortPass.renderToScreen = true;
-  composer.addPass(distortPass);
-
   // Orthographic camera: zoomed out so ZOOM× more grid is visible
   camera = new THREE.OrthographicCamera(-W/2*ZOOM, W/2*ZOOM, H/2*ZOOM, -H/2*ZOOM, 0.1, 100);
   camera.position.set(UW/2, -UH/2, 1);
+
+  // ── EffectComposer post-processing ──
+  // Camera must exist before RenderPass is created
+  composer    = new EffectComposer(renderer);
+  composer.setSize(W, H);
+  composer.addPass(new RenderPass(scene, camera));   // pass 1: render scene
+  distortPass = new ShaderPass(DistortShader);        // pass 2: barrel + CA
+  composer.addPass(distortPass);
 
   raycaster = new THREE.Raycaster();
   mouseVec  = new THREE.Vector2();
