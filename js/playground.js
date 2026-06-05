@@ -288,9 +288,24 @@ function onPointerUp() {
 function onWheel(e) {
   e.preventDefault();
   e.stopPropagation();
-  panX += e.deltaX * 0.5;
+
+  const ax = Math.abs(e.deltaX);
+  const ay = Math.abs(e.deltaY);
+
+  // macOS natural scroll inverts deltaX ONLY for pure-horizontal gestures.
+  // For diagonal / vertical events the sign is standard (left = negative).
+  // Detect pure-horizontal when |dX| clearly dominates, then un-invert it.
+  let dx;
+  if (ax < 2) {
+    dx = 0;                    // noise during vertical scroll — ignore
+  } else if (ax > ay * 1.5) {
+    dx = -e.deltaX;            // pure horizontal: natural scroll gave us flipped sign
+  } else {
+    dx = e.deltaX;             // diagonal: standard sign
+  }
+
+  panX -= dx * 0.5;
   panY += e.deltaY * 0.5;
-  if (elDebug) elDebug.textContent = `dX:${e.deltaX.toFixed(1)}  dY:${e.deltaY.toFixed(1)}  panX:${panX.toFixed(0)}  panY:${panY.toFixed(0)}`;
 }
 
 // Touch (mobile)
