@@ -419,12 +419,12 @@ function animate(ts) {
   camera.position.set(cx, -cy, 1);
 
   // ── Zoom spring (camera.zoom) ─────────────────────────
-  scrollEnergy *= 0.88;                                  // decay each frame
-  const zoomTarget = 1.0 - scrollEnergy * 0.12;         // max 12% zoom-out
-  distortSpd += (zoomTarget - distortVal) * 0.18;
-  distortSpd *= 0.68;
+  scrollEnergy *= 0.85;                                  // decay each frame
+  const zoomTarget = 1.0 - scrollEnergy * 0.07;         // softer: max ~7% zoom-out
+  distortSpd += (zoomTarget - distortVal) * 0.10;       // softer spring stiffness
+  distortSpd *= 0.75;                                    // more damping = less bounce
   distortVal += distortSpd;
-  distortVal  = Math.max(0.85, Math.min(1.0, distortVal));
+  distortVal  = Math.max(0.90, Math.min(1.0, distortVal));
   camera.zoom = distortVal;
   camera.updateProjectionMatrix();
 
@@ -539,8 +539,9 @@ function onWheel(e) {
     dx = e.deltaX;             // diagonal: standard sign
   }
 
-  panX -= dx * 0.5;
-  panY += e.deltaY * 0.5;
+  // Feed into velocity so animate loop applies inertia (coasting after lift)
+  velX -= dx * 0.5;
+  velY += e.deltaY * 0.5;
   const mag = Math.sqrt(dx*dx + e.deltaY*e.deltaY);
   scrollEnergy = Math.min(scrollEnergy + mag * 0.004, 1.0);
 }
