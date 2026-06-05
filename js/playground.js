@@ -135,7 +135,8 @@ function buildLayout() {
 
   const tiles = [];
   for (const col of cols) {
-    let y = 0;
+    // Random vertical offset per column — creates organic stagger effect
+    let y = Math.random() * MAX_TH * 0.6;
     while (y < UH - GAP) {
       const h = Math.min(MIN_TH + Math.random() * (MAX_TH - MIN_TH), UH - y);
 
