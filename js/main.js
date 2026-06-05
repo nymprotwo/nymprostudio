@@ -18,7 +18,7 @@ import { initScrollEffects } from './scroll-effects.js?v=36';
 import { initFx } from './fx-switcher.js?v=33';
 import { initSkillsPreview } from './skills-preview.js?v=7';
 import { initContactPopup } from './contact-popup.js?v=2';
-import { initPlayground, showPlayground, hidePlayground } from './playground.js?v=18';
+import { initPlayground, showPlayground, hidePlayground } from './playground.js?v=19';
 
 const splashEl = document.getElementById('splash');
 const barEl = document.getElementById('splash-bar');

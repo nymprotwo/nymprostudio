@@ -409,8 +409,12 @@ function animate(ts) {
   // Apply inertia
   panX += velX;
   panY += velY;
-  velX *= 0.94;
-  velY *= 0.94;
+  // Cap velocity to prevent runaway on hard flicks
+  const MAX_VEL = 25;
+  velX = Math.max(-MAX_VEL, Math.min(MAX_VEL, velX));
+  velY = Math.max(-MAX_VEL, Math.min(MAX_VEL, velY));
+  velX *= 0.88;
+  velY *= 0.88;
 
   // Wrap camera position so it stays within [0, UW) × [0, UH)
   // (seamless because tiles repeat every UW/UH)
@@ -419,12 +423,12 @@ function animate(ts) {
   camera.position.set(cx, -cy, 1);
 
   // ── Zoom spring (camera.zoom) ─────────────────────────
-  scrollEnergy *= 0.85;                                  // decay each frame
-  const zoomTarget = 1.0 - scrollEnergy * 0.07;         // softer: max ~7% zoom-out
-  distortSpd += (zoomTarget - distortVal) * 0.10;       // softer spring stiffness
-  distortSpd *= 0.75;                                    // more damping = less bounce
+  scrollEnergy *= 0.87;                                  // decay each frame
+  const zoomTarget = 1.0 - scrollEnergy * 0.10;         // up to ~10% zoom-out
+  distortSpd += (zoomTarget - distortVal) * 0.12;
+  distortSpd *= 0.72;
   distortVal += distortSpd;
-  distortVal  = Math.max(0.90, Math.min(1.0, distortVal));
+  distortVal  = Math.max(0.88, Math.min(1.0, distortVal));
   camera.zoom = distortVal;
   camera.updateProjectionMatrix();
 
@@ -543,7 +547,7 @@ function onWheel(e) {
   velX -= dx * 0.5;
   velY += e.deltaY * 0.5;
   const mag = Math.sqrt(dx*dx + e.deltaY*e.deltaY);
-  scrollEnergy = Math.min(scrollEnergy + mag * 0.004, 1.0);
+  scrollEnergy = Math.min(scrollEnergy + mag * 0.012, 1.0);
 }
 
 // Touch (mobile)
