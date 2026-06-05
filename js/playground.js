@@ -481,10 +481,11 @@ function animate(ts) {
   camera.position.set(cx, -cy, 1);
 
   // ── Zoom spring (camera.zoom) ─────────────────────────
-  scrollEnergy *= 0.87;                                  // decay each frame
-  const zoomTarget = 1.0 - scrollEnergy * 0.20;         // up to ~20% zoom-out (deep pull-back)
-  distortSpd += (zoomTarget - distortVal) * 0.12;
-  distortSpd *= 0.72;
+  // Slow decay + soft spring = smooth ramp-in AND slow return, no snap
+  scrollEnergy *= 0.94;                                  // energy lingers longer
+  const zoomTarget = 1.0 - scrollEnergy * 0.20;
+  distortSpd += (zoomTarget - distortVal) * 0.045;      // gentler pull toward target
+  distortSpd *= 0.88;                                    // more damping = no bounce, glides
   distortVal += distortSpd;
   distortVal  = Math.max(0.78, Math.min(1.0, distortVal));
   camera.zoom = distortVal;
