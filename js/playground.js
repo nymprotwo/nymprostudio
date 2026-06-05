@@ -61,10 +61,12 @@ varying vec2      vUv;
 float rand(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
 
 // object-fit: cover — fills tile, crops overflow, no stretching
+// tile > tex  →  tile is wider  →  fit width, crop height  →  shrink y range
+// tile < tex  →  tile is taller →  fit height, crop width  →  shrink x range
 vec2 coverUV(vec2 uv, float tile, float tex) {
   vec2 c = uv - 0.5;
-  if (tile > tex) { c.y *= tile / tex; }
-  else            { c.x *= tex  / tile; }
+  if (tile > tex) { c.y *= tex / tile; }
+  else            { c.x *= tile / tex; }
   return c + 0.5;
 }
 
@@ -135,16 +137,25 @@ function buildLayout() {
 function loadTextures() {
   const loader = new THREE.TextureLoader();
   return Promise.all(IMAGES.map(src => new Promise(res => {
-    loader.load(src, t => {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-      // Store AR at load time — image.width/height is reliable here
-      const img = t.image;
-      t.userData.ar = (img.naturalWidth || img.width || 1) /
-                      (img.naturalHeight || img.height || 1);
-      res(t);
-    },
-      null, () => res(null));
+    // Read natural dimensions first via a plain Image — guaranteed correct
+    const probe = new Image();
+    probe.onload = () => {
+      const ar = probe.naturalWidth / probe.naturalHeight || 1;
+      loader.load(src, t => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+        t.userData.ar = ar;
+        res(t);
+      }, null, () => res(null));
+    };
+    probe.onerror = () => {
+      loader.load(src, t => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.userData.ar = 1;
+        res(t);
+      }, null, () => res(null));
+    };
+    probe.src = src;
   }))).then(txs => { textures = txs.filter(Boolean); });
 }
 
