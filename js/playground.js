@@ -6,6 +6,9 @@
 // ─────────────────────────────────────────────────────
 
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
 import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 
 // ── Grid config ───────────────────────────────────────
@@ -169,35 +172,53 @@ void main(){
   gl_FragColor = col;
 }`;
 
-// ── Post-process: barrel distortion on scroll ─────────
-const DISTORT_VERT = `
-varying vec2 vUv;
-void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+// ── Post-process: barrel + chromatic aberration on scroll ──
+// ShaderPass format: uniforms + vertexShader + fragmentShader.
+// tDiffuse is injected automatically by ShaderPass.
+const DistortShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    distort:  { value: 0.0 },   // 0..1 spring-driven
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float     distort;
+    varying vec2      vUv;
+    void main(){
+      vec2 uv = vUv * 2.0 - 1.0;
 
-const DISTORT_FRAG = `
-uniform sampler2D tDiffuse;
-uniform float     distort;   // 0..1
-varying vec2      vUv;
-void main(){
-  vec2 uv = vUv * 2.0 - 1.0;
-  // Barrel (sphere) distortion
-  float k  = distort * 0.18;
-  float r2 = dot(uv, uv);
-  uv *= 1.0 + k * r2;
-  // Slight zoom-out so corners don't black out
-  uv *= 1.0 + distort * 0.05;
-  uv = (uv + 1.0) * 0.5;
-  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-    gl_FragColor = vec4(0.024, 0.02, 0.035, 1.0); // bg color
-  } else {
-    gl_FragColor = texture2D(tDiffuse, uv);
-  }
-}`;
+      // Barrel (sphere) distortion
+      float k  = distort * 0.18;
+      float r2 = dot(uv, uv);
+      uv *= 1.0 + k * r2;
+      // Zoom-out so corners stay filled
+      uv *= 1.0 + distort * 0.05;
+      uv = (uv + 1.0) * 0.5;
+
+      // Chromatic aberration — RGB channels split outward from center
+      float ca   = distort * 0.008;
+      vec2  dir  = vUv - 0.5;
+      vec4  colR = texture2D(tDiffuse, uv + dir * ca);
+      vec4  colG = texture2D(tDiffuse, uv);
+      vec4  colB = texture2D(tDiffuse, uv - dir * ca);
+
+      vec4 col;
+      if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+        col = vec4(0.024, 0.02, 0.035, 1.0);
+      } else {
+        col = vec4(colR.r, colG.g, colB.b, 1.0);
+      }
+      gl_FragColor = col;
+    }`,
+};
 
 // ── State ─────────────────────────────────────────────
 let renderer, scene, camera;
-let renderTarget = null;
-let distortScene = null, distortCam = null, distortMat = null;
+let composer = null;
+let distortPass = null;
 
 let textures   = [];
 let baseTiles  = [];   // {x,y,w,h} layout
@@ -404,7 +425,7 @@ function animate(ts) {
   distortSpd += (distortTarget - distortVal) * 0.22;
   distortSpd *= 0.62;
   distortVal  = Math.max(0, distortVal + distortSpd);
-  if (distortMat) distortMat.uniforms.distort.value = distortVal;
+  if (distortPass) distortPass.uniforms.distort.value = distortVal;
 
   // Elapsed display
   if (elElapsed) {
@@ -449,12 +470,9 @@ function animate(ts) {
     mat.uniforms.hover.value = g.hoverVal;
   });
 
-  // ── Two-pass render: scene → target → distort quad → screen ──
-  if (distortMat && renderTarget) {
-    renderer.setRenderTarget(renderTarget);
-    renderer.render(scene, camera);
-    renderer.setRenderTarget(null);
-    renderer.render(distortScene, distortCam);
+  // ── EffectComposer renders: scene → barrel+CA → screen ──
+  if (composer) {
+    composer.render();
   } else {
     renderer.render(scene, camera);
   }
@@ -549,8 +567,7 @@ function onResize() {
   camera.left   = -W/2*ZOOM;  camera.right  = W/2*ZOOM;
   camera.top    =  H/2*ZOOM;  camera.bottom = -H/2*ZOOM;
   camera.updateProjectionMatrix();
-  if (renderTarget) renderTarget.setSize(W * Math.min(devicePixelRatio, 2),
-                                          H * Math.min(devicePixelRatio, 2));
+  if (composer) composer.setSize(W, H);
 }
 
 // ── Public API ────────────────────────────────────────
@@ -565,29 +582,18 @@ export function initPlayground() {
   const W = window.innerWidth, H = window.innerHeight;
 
   renderer = new THREE.WebGLRenderer({ canvas: elCanvas, antialias: true });
-  const PR = Math.min(devicePixelRatio, 2);
-  renderer.setPixelRatio(PR);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(W, H);
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x060509);
 
-  // ── Post-process setup ──
-  renderTarget = new THREE.WebGLRenderTarget(W * PR, H * PR, {
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
-    format: THREE.RGBAFormat,
-  });
-  distortMat = new THREE.ShaderMaterial({
-    uniforms: { tDiffuse: { value: renderTarget.texture }, distort: { value: 0 } },
-    vertexShader:   DISTORT_VERT,
-    fragmentShader: DISTORT_FRAG,
-    depthTest: false, depthWrite: false,
-  });
-  distortScene = new THREE.Scene();
-  distortCam   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const quad   = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), distortMat);
-  distortScene.add(quad);
+  // ── EffectComposer post-processing ──
+  composer    = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));   // pass 1: render scene
+  distortPass = new ShaderPass(DistortShader);        // pass 2: barrel + CA
+  distortPass.renderToScreen = true;
+  composer.addPass(distortPass);
 
   // Orthographic camera: zoomed out so ZOOM× more grid is visible
   camera = new THREE.OrthographicCamera(-W/2*ZOOM, W/2*ZOOM, H/2*ZOOM, -H/2*ZOOM, 0.1, 100);
