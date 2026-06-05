@@ -288,7 +288,7 @@ function onPointerUp() {
 function onWheel(e) {
   e.preventDefault();
   e.stopPropagation();
-  panX -= e.deltaX * 0.5;
+  panX += e.deltaX * 0.5;
   panY += e.deltaY * 0.5;
   if (elDebug) elDebug.textContent = `dX:${e.deltaX.toFixed(1)}  dY:${e.deltaY.toFixed(1)}  panX:${panX.toFixed(0)}  panY:${panY.toFixed(0)}`;
 }
