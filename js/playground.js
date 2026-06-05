@@ -12,12 +12,12 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
 import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 
 // ── Grid config ───────────────────────────────────────
-const UW       = 2400;  // repeating tile-unit width  (px)
-const UH       = 1800;  // repeating tile-unit height (px)
-const N_COLS     = 6;   // regular columns; 3 feature cols (each 2×) → 12 units = 200px/unit
-const GAP        = 57;  // gap between tiles (px)  (+10%)
-const MIN_TH     = 130; // min tile height (px)
-const MAX_TH     = 420; // max tile height (px)
+const UW       = 3200;  // repeating tile-unit width  (px)
+const UH       = 2400;  // repeating tile-unit height (px)
+const N_COLS     = 6;   // regular columns; 3 feature cols (each 2×) → 12 units ≈ 267px/unit
+const GAP        = 90;  // gap between tiles — generous breathing room
+const MIN_TH     = 160; // min tile height (px)
+const MAX_TH     = 520; // max tile height (px)
 // Feature columns spread evenly at positions 1, 4, 7 among 9 total cols
 const WIDE_COL_A = 1;   // mostly large   (35% split)
 const WIDE_COL_B = 4;   // balanced chaos (55% split)
@@ -301,9 +301,10 @@ function buildLayout() {
       const h = Math.min(MIN_TH + Math.random() * (MAX_TH - MIN_TH), UH - y);
 
       if (col.splitP > 0 && Math.random() < col.splitP) {
-        const subW = (col.w - GAP * 1.5) / 2;
-        tiles.push({ x: col.x + GAP/2,                 y: y + GAP/2, w: subW, h: h - GAP });
-        tiles.push({ x: col.x + GAP/2 + subW + GAP/2,  y: y + GAP/2, w: subW, h: h - GAP });
+        // Two side-by-side tiles: GAP on all outer edges, GAP between them
+        const subW = (col.w - GAP * 2) / 2;
+        tiles.push({ x: col.x + GAP/2,              y: y + GAP/2, w: subW, h: h - GAP });
+        tiles.push({ x: col.x + GAP/2 + subW + GAP, y: y + GAP/2, w: subW, h: h - GAP });
       } else {
         tiles.push({ x: col.x + GAP/2, y: y + GAP/2, w: col.w - GAP, h: h - GAP });
       }
