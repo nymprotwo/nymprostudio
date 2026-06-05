@@ -30,8 +30,8 @@ const CYCLE_MAX = 8;
 // Auto-scroll speed (world units/frame upward)
 const AUTO_SCROLL = 0.35;
 
-// Zoom out factor — >1 shows more of the grid
-const ZOOM = 1.1;
+// Zoom out factor — >1 shows more of the grid (1.0 = native pixel size)
+const ZOOM = 1.0;
 
 const IMAGES = [
   './assets/playground/b3.webp',
@@ -424,11 +424,11 @@ function animate(ts) {
 
   // ── Zoom spring (camera.zoom) ─────────────────────────
   scrollEnergy *= 0.87;                                  // decay each frame
-  const zoomTarget = 1.0 - scrollEnergy * 0.10;         // up to ~10% zoom-out
+  const zoomTarget = 1.0 - scrollEnergy * 0.20;         // up to ~20% zoom-out (deep pull-back)
   distortSpd += (zoomTarget - distortVal) * 0.12;
   distortSpd *= 0.72;
   distortVal += distortSpd;
-  distortVal  = Math.max(0.88, Math.min(1.0, distortVal));
+  distortVal  = Math.max(0.78, Math.min(1.0, distortVal));
   camera.zoom = distortVal;
   camera.updateProjectionMatrix();
 
@@ -544,8 +544,8 @@ function onWheel(e) {
   }
 
   // Feed into velocity so animate loop applies inertia (coasting after lift)
-  velX -= dx * 0.5;
-  velY += e.deltaY * 0.5;
+  velX -= dx * 0.28;
+  velY += e.deltaY * 0.28;
   const mag = Math.sqrt(dx*dx + e.deltaY*e.deltaY);
   scrollEnergy = Math.min(scrollEnergy + mag * 0.012, 1.0);
 }
