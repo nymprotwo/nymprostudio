@@ -12,12 +12,12 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
 import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 
 // ── Grid config ───────────────────────────────────────
-const UW       = 3200;  // repeating tile-unit width  (px)
-const UH       = 2400;  // repeating tile-unit height (px)
-const N_COLS     = 6;   // regular columns; 3 feature cols (each 2×) → 12 units ≈ 267px/unit
-const GAP        = 90;  // gap between tiles — generous breathing room
-const MIN_TH     = 160; // min tile height (px)
-const MAX_TH     = 520; // max tile height (px)
+const UW       = 2400;  // repeating tile-unit width  (px)
+const UH       = 1800;  // repeating tile-unit height (px)
+const N_COLS     = 6;   // regular columns; 3 feature cols (each 2×) → 12 units = 200px/unit
+const GAP        = 65;  // gap between tiles
+const MIN_TH     = 130; // min tile height (px)
+const MAX_TH     = 420; // max tile height (px)
 // Feature columns spread evenly at positions 1, 4, 7 among 9 total cols
 const WIDE_COL_A = 1;   // mostly large   (35% split)
 const WIDE_COL_B = 4;   // balanced chaos (55% split)
