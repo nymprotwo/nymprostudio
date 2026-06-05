@@ -303,7 +303,15 @@ function buildLayout() {
         tiles.push({ x: col.x + GAP/2,              y: y + GAP/2, w: subW, h: h - GAP });
         tiles.push({ x: col.x + GAP/2 + subW + GAP, y: y + GAP/2, w: subW, h: h - GAP });
       } else {
-        tiles.push({ x: col.x + GAP/2, y: y + GAP/2, w: col.w - GAP, h: h - GAP });
+        // ~25% chance: tile "breaks out" — slightly wider than its column
+        const breakout = Math.random() < 0.25
+          ? (0.18 + Math.random() * 0.22)   // 18–40% wider
+          : 0;
+        const extra = col.w * breakout;
+        // Shift left by half the extra so it expands on both sides
+        const bx = col.x + GAP/2 - extra / 2;
+        const bw = col.w - GAP + extra;
+        tiles.push({ x: bx, y: y + GAP/2, w: bw, h: h - GAP, breakout });
       }
       y += h;
     }
