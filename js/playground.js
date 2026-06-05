@@ -11,12 +11,14 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 // ── Grid config ───────────────────────────────────────
 const UW       = 2400;  // repeating tile-unit width  (px)
 const UH       = 1800;  // repeating tile-unit height (px)
-const N_COLS     = 8;   // regular columns; 2 feature cols (each 2×) → 12 units total
-const GAP        = 52;  // gap between tiles (px)
+const N_COLS     = 6;   // regular columns; 3 feature cols (each 2×) → 12 units = 200px/unit
+const GAP        = 57;  // gap between tiles (px)  (+10%)
 const MIN_TH     = 130; // min tile height (px)
 const MAX_TH     = 420; // max tile height (px)
-const WIDE_COL_A = 2;   // feature col A — mostly large, sometimes 2-small  (40% split)
-const WIDE_COL_B = 7;   // feature col B — mostly 2-small, sometimes large  (75% split)
+// Feature columns spread evenly at positions 1, 4, 7 among 9 total cols
+const WIDE_COL_A = 1;   // mostly large   (35% split)
+const WIDE_COL_B = 4;   // balanced chaos (55% split)
+const WIDE_COL_C = 7;   // mostly 2-small (75% split)
 
 // Image cycling
 const CYCLE_MIN = 3;
@@ -113,21 +115,21 @@ let raycaster, mouseVec, hoveredMat = null;
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
 // ── Layout generator ──────────────────────────────────
-// 8 regular cols + 2 feature cols (each 2× wide) = 12 unit-widths total.
-// Col A (idx 2): 40% two-small / 60% large
-// Col B (idx 7): 75% two-small / 25% large
+// 6 regular cols + 3 feature cols (each 2×) = 12 unit-widths → 200px/unit.
+// Positions: reg(0), A(1), reg(2), reg(3), B(4), reg(5), reg(6), C(7), reg(8)
 function buildLayout() {
-  const unitW     = UW / (N_COLS + 4); // 8 reg + 2×2 feature = 12 units → 200px each
+  const unitW     = UW / (N_COLS + 6); // 6 + 3×2 = 12 units → 200px
   const featW     = unitW * 2;          // feature = 400px
-  const totalCols = N_COLS + 2;         // 8 + 2 = 10 columns
+  const totalCols = N_COLS + 3;         // 6 + 3 = 9 columns
+
+  const SPLIT_P = { [WIDE_COL_A]: 0.35, [WIDE_COL_B]: 0.55, [WIDE_COL_C]: 0.75 };
 
   const cols = [];
   let x = 0;
   for (let c = 0; c < totalCols; c++) {
-    const isA = (c === WIDE_COL_A);
-    const isB = (c === WIDE_COL_B);
-    const w   = (isA || isB) ? featW : unitW;
-    cols.push({ x, w, isA, isB });
+    const feat = SPLIT_P[c] !== undefined;
+    const w    = feat ? featW : unitW;
+    cols.push({ x, w, splitP: SPLIT_P[c] ?? 0 });
     x += w;
   }
 
@@ -137,15 +139,11 @@ function buildLayout() {
     while (y < UH - GAP) {
       const h = Math.min(MIN_TH + Math.random() * (MAX_TH - MIN_TH), UH - y);
 
-      const splitP = col.isA ? 0.40 : col.isB ? 0.75 : 0;
-
-      if (splitP > 0 && Math.random() < splitP) {
-        // Two small tiles side-by-side
+      if (col.splitP > 0 && Math.random() < col.splitP) {
         const subW = (col.w - GAP * 1.5) / 2;
-        tiles.push({ x: col.x + GAP/2,                  y: y + GAP/2, w: subW, h: h - GAP });
-        tiles.push({ x: col.x + GAP/2 + subW + GAP/2,   y: y + GAP/2, w: subW, h: h - GAP });
+        tiles.push({ x: col.x + GAP/2,                 y: y + GAP/2, w: subW, h: h - GAP });
+        tiles.push({ x: col.x + GAP/2 + subW + GAP/2,  y: y + GAP/2, w: subW, h: h - GAP });
       } else {
-        // Full-width tile
         tiles.push({ x: col.x + GAP/2, y: y + GAP/2, w: col.w - GAP, h: h - GAP });
       }
       y += h;
