@@ -11,10 +11,10 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 // ── Grid config ───────────────────────────────────────
 const UW      = 2400;   // repeating tile-unit width  (px)
 const UH      = 1800;   // repeating tile-unit height (px)
-const N_COLS  = 8;      // vertical strips  → colW = 300px
-const GAP     = 80;     // gap between tiles (px)
-const MIN_TH  = 140;    // min tile height (px)
-const MAX_TH  = 480;    // max tile height (px)
+const N_COLS  = 10;     // vertical strips  → colW = 240px, tile = ~188px
+const GAP     = 52;     // gap between tiles (px)
+const MIN_TH  = 130;    // min tile height (px)
+const MAX_TH  = 420;    // max tile height (px)
 
 // Image cycling
 const CYCLE_MIN = 3;
