@@ -11,10 +11,10 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 // ── Grid config ───────────────────────────────────────
 const UW      = 2400;   // repeating tile-unit width  (px)
 const UH      = 1800;   // repeating tile-unit height (px)
-const N_COLS  = 14;     // vertical strips
-const GAP     = 18;     // gap between tiles (px)
-const MIN_TH  = 100;    // min tile height (px)
-const MAX_TH  = 420;    // max tile height (px)
+const N_COLS  = 9;      // vertical strips
+const GAP     = 30;     // gap between tiles (px)
+const MIN_TH  = 160;    // min tile height (px)
+const MAX_TH  = 560;    // max tile height (px)
 
 // Image cycling
 const CYCLE_MIN = 3;
@@ -53,9 +53,20 @@ uniform sampler2D texA;
 uniform sampler2D texB;
 uniform float     progress;
 uniform float     hover;
+uniform float     tileAR;   // tile width / height
+uniform float     arA;      // texA width / height
+uniform float     arB;      // texB width / height
 varying vec2      vUv;
 
 float rand(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
+
+// object-fit: cover — fills tile, crops overflow, no stretching
+vec2 coverUV(vec2 uv, float tile, float tex) {
+  vec2 c = uv - 0.5;
+  if (tile > tex) { c.y *= tile / tex; }
+  else            { c.x *= tex  / tile; }
+  return c + 0.5;
+}
 
 void main(){
   vec2  bUv = floor(vUv*8.0)/8.0;
@@ -63,8 +74,8 @@ void main(){
   float t   = clamp((progress*1.4 - n*0.4)/1.0, 0.0, 1.0);
   t = t*t*(3.0-2.0*t);
 
-  vec4 colA = texture2D(texA, vUv);
-  vec4 colB = texture2D(texB, vUv);
+  vec4 colA = texture2D(texA, coverUV(vUv, tileAR, arA));
+  vec4 colB = texture2D(texB, coverUV(vUv, tileAR, arB));
   vec4 col  = mix(colA, colB, t);
 
   // soft edge (gap illusion)
@@ -124,7 +135,11 @@ function buildLayout() {
 function loadTextures() {
   const loader = new THREE.TextureLoader();
   return Promise.all(IMAGES.map(src => new Promise(res => {
-    loader.load(src, t => { t.colorSpace = THREE.SRGBColorSpace; res(t); },
+    loader.load(src, t => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+      res(t);
+    },
       null, () => res(null));
   }))).then(txs => { textures = txs.filter(Boolean); });
 }
@@ -141,12 +156,16 @@ function buildScene() {
     const idxB = (idxA + 3 + Math.floor(Math.random()*(textures.length-3))) % textures.length;
     imgCursor++;
 
+    const tA = textures[idxA], tB = textures[idxB];
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        texA:     { value: textures[idxA] },
-        texB:     { value: textures[idxB] },
+        texA:     { value: tA },
+        texB:     { value: tB },
         progress: { value: 0 },
         hover:    { value: 0 },
+        tileAR:   { value: tile.w / tile.h },
+        arA:      { value: tA.image.width / tA.image.height },
+        arB:      { value: tB.image.width / tB.image.height },
       },
       vertexShader:   VERT,
       fragmentShader: FRAG,
@@ -224,8 +243,11 @@ function animate(ts) {
         g.progress = 0;
         g.idxA = g.idxB;
         g.idxB = (g.idxA + 1 + Math.floor(Math.random()*(textures.length-1))) % textures.length;
-        mat.uniforms.texA.value     = textures[g.idxA];
-        mat.uniforms.texB.value     = textures[g.idxB];
+        const tA = textures[g.idxA], tB = textures[g.idxB];
+        mat.uniforms.texA.value     = tA;
+        mat.uniforms.texB.value     = tB;
+        mat.uniforms.arA.value      = tA.image.width / tA.image.height;
+        mat.uniforms.arB.value      = tB.image.width / tB.image.height;
         mat.uniforms.progress.value = 0;
       }
     } else if (elapsed - g.lastSwitch > g.cycleEvery) {
