@@ -281,11 +281,16 @@ function buildLayout() {
 
   const SPLIT_P = { [WIDE_COL_A]: 0.35, [WIDE_COL_B]: 0.55, [WIDE_COL_C]: 0.75 };
 
+  // Width multipliers for the 6 regular columns. Must sum to 6 so total UW unchanged.
+  // Varying widths break the "identical column" look — narrower next to wider.
+  const REG_W_MULT = [0.78, 1.18, 0.92, 1.12, 0.88, 1.12]; // sums to 6.0
+  let regCursor    = 0;
+
   const cols = [];
   let x = 0;
   for (let c = 0; c < totalCols; c++) {
     const feat = SPLIT_P[c] !== undefined;
-    const w    = feat ? featW : unitW;
+    const w    = feat ? featW : unitW * REG_W_MULT[regCursor++ % REG_W_MULT.length];
     cols.push({ x, w, splitP: SPLIT_P[c] ?? 0 });
     x += w;
   }
