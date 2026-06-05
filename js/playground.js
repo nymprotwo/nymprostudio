@@ -290,28 +290,37 @@ function buildLayout() {
     x += w;
   }
 
-  const tiles = [];
-  for (const col of cols) {
-    // Random vertical offset (stagger) per column.
-    // CRITICAL: column must span EXACTLY UH grid units so the seam between
-    // vertical copies aligns perfectly (no overlap, no extra gap).
-    const stagger = Math.random() * MAX_TH * 0.5;
-    let y         = -stagger;
-    const yEnd    = UH - stagger;          // column ends here in grid coords
+  // Per-column "character" — forces variety so adjacent columns aren't twins.
+  // Cycle through 4 distinct height profiles across columns.
+  const PROFILES = [
+    { min: 200, max: 420, name: 'tall'  },  // big-tile heavy
+    { min: 130, max: 240, name: 'short' },  // small-tile heavy
+    { min: 160, max: 380, name: 'mixed' },  // varied
+    { min: 110, max: 200, name: 'tiny'  },  // many small
+  ];
+  // Shuffle profile assignment so it's not predictable but neighbors differ.
+  // Use index-based interleaving: c=0→0, c=1→2, c=2→1, c=3→3, c=4→0...
+  const ORDER = [0, 2, 1, 3];
 
-    // Pre-generate row heights, then stretch the last one to land exactly on yEnd
+  const tiles = [];
+  cols.forEach((col, colIdx) => {
+    const prof = PROFILES[ORDER[colIdx % ORDER.length]];
+    const stagger = Math.random() * prof.max * 0.5;
+    let y         = -stagger;
+    const yEnd    = UH - stagger;
+
+    // Pre-generate row heights with this column's profile
     const rows = [];
     let cursor = y;
     while (true) {
       const remain = yEnd - cursor;
-      if (remain < MIN_TH) break;          // not enough room for another tile
-      let h = MIN_TH + Math.random() * (MAX_TH - MIN_TH);
-      if (remain - h < MIN_TH) h = remain; // last tile: fill all remaining space
+      if (remain < prof.min) break;
+      let h = prof.min + Math.random() * (prof.max - prof.min);
+      if (remain - h < prof.min) h = remain;
       rows.push(h);
       cursor += h;
       if (cursor >= yEnd) break;
     }
-    // If a tiny remainder is left (shouldn't happen often), add it to last row
     if (rows.length && cursor < yEnd) rows[rows.length - 1] += yEnd - cursor;
 
     // Now place tiles using fixed row heights
@@ -327,7 +336,7 @@ function buildLayout() {
       }
       y += h;
     }
-  }
+  });
   return tiles;
 }
 
