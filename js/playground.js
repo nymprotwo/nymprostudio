@@ -27,6 +27,9 @@ const CYCLE_MAX = 8;
 // Auto-scroll speed (world units/frame upward)
 const AUTO_SCROLL = 0.35;
 
+// Zoom out factor — >1 shows more of the grid (1.2 = ~20% more visible)
+const ZOOM = 1.22;
+
 const IMAGES = [
   './assets/playground/b3.webp',
   './assets/playground/bird.webp',
@@ -254,16 +257,40 @@ function loadTextures() {
 }
 
 // ── Scene build ───────────────────────────────────────
+// Shuffled index pool — returns indices in random order, never repeats
+// until the whole pool is exhausted, then reshuffles.
+function makePool(n) {
+  const arr = Array.from({length: n}, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function buildScene() {
   baseTiles  = buildLayout();
   tileGroups = [];
 
-  let imgCursor = Math.floor(Math.random() * textures.length);
+  // Two independent shuffled pools so texA and texB never coincide
+  let poolA = makePool(textures.length);
+  let poolB = makePool(textures.length);
+  let curA  = 0, curB = 0;
+
+  const nextA = () => {
+    if (curA >= poolA.length) { poolA = makePool(textures.length); curA = 0; }
+    return poolA[curA++];
+  };
+  const nextB = () => {
+    if (curB >= poolB.length) { poolB = makePool(textures.length); curB = 0; }
+    return poolB[curB++];
+  };
 
   baseTiles.forEach(tile => {
-    const idxA = imgCursor % textures.length;
-    const idxB = (idxA + 3 + Math.floor(Math.random()*(textures.length-3))) % textures.length;
-    imgCursor++;
+    let idxA = nextA();
+    let idxB = nextB();
+    // Ensure A ≠ B (rare collision case)
+    if (idxB === idxA) idxB = (idxB + 1) % textures.length;
 
     const tA = textures[idxA], tB = textures[idxB];
     const mat = new THREE.ShaderMaterial({
@@ -469,8 +496,8 @@ function onResize() {
   if (!renderer || !camera) return;
   const W = window.innerWidth, H = window.innerHeight;
   renderer.setSize(W, H);
-  camera.left   = -W/2;  camera.right  = W/2;
-  camera.top    =  H/2;  camera.bottom = -H/2;
+  camera.left   = -W/2*ZOOM;  camera.right  = W/2*ZOOM;
+  camera.top    =  H/2*ZOOM;  camera.bottom = -H/2*ZOOM;
   camera.updateProjectionMatrix();
 }
 
@@ -492,8 +519,8 @@ export function initPlayground() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x060509);
 
-  // Orthographic camera: 1 world unit = 1 CSS pixel
-  camera = new THREE.OrthographicCamera(-W/2, W/2, H/2, -H/2, 0.1, 100);
+  // Orthographic camera: zoomed out so ZOOM× more grid is visible
+  camera = new THREE.OrthographicCamera(-W/2*ZOOM, W/2*ZOOM, H/2*ZOOM, -H/2*ZOOM, 0.1, 100);
   camera.position.set(UW/2, -UH/2, 1);
 
   raycaster = new THREE.Raycaster();
