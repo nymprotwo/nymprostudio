@@ -228,7 +228,7 @@ let panX = UW/2, panY = UH/2;  // camera target (unbounded)
 let velX = 0, velY = 0;
 
 // Spring state for distortion
-let distortVal = 0;   // current distortion strength
+let distortVal = 1.0; // current zoom (1 = normal, <1 = zoomed out)
 let distortSpd = 0;   // spring velocity
 
 let isDragging = false;
