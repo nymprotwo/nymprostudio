@@ -183,11 +183,8 @@ void main(){
 
   vec4 col = mix(colA, colB, clamp(t, 0.0, 1.0));
 
-  // ── Neon front-edge glow ─────────────────────────────
-  // Blend toward bright accent color at transition front
-  col.rgb  = mix(col.rgb, accent * 2.8, neon * 0.85);
-  // Add extra bloom on top (additive)
-  col.rgb += accent * neon * 0.6;
+  // ── Neon front-edge glow — subtle, just a hint ───────
+  col.rgb += accent * neon * 0.18;
 
   // ── Soft vignette ────────────────────────────────────
   vec2 uvc = abs(vUv-0.5)*2.0;
@@ -476,7 +473,7 @@ function animate(ts) {
     const mat = g.mat;
 
     if (g.transitioning) {
-      g.progress = Math.min(g.progress + 0.014, 1);
+      g.progress = Math.min(g.progress + 0.021, 1);
       mat.uniforms.progress.value = g.progress;
       if (g.progress >= 1) {
         g.transitioning = false;
