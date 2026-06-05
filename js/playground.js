@@ -30,8 +30,8 @@ const CYCLE_MAX = 8;
 // Auto-scroll speed (world units/frame upward)
 const AUTO_SCROLL = 0.35;
 
-// Zoom out factor — >1 shows more of the grid (1.2 = ~20% more visible)
-const ZOOM = 1.22;
+// Zoom out factor — >1 shows more of the grid
+const ZOOM = 1.1;
 
 const IMAGES = [
   './assets/playground/b3.webp',
@@ -228,8 +228,9 @@ let panX = UW/2, panY = UH/2;  // camera target (unbounded)
 let velX = 0, velY = 0;
 
 // Spring state for distortion
-let distortVal = 1.0; // current zoom (1 = normal, <1 = zoomed out)
-let distortSpd = 0;   // spring velocity
+let distortVal   = 1.0; // current zoom (1 = normal, <1 = zoomed out)
+let distortSpd   = 0;   // spring velocity
+let scrollEnergy = 0;   // boosted by any user input, decays each frame
 
 let isDragging = false;
 let prevMouse  = {x:0,y:0};
@@ -265,8 +266,8 @@ function buildLayout() {
 
   const tiles = [];
   for (const col of cols) {
-    // Random vertical offset per column — creates organic stagger effect
-    let y = Math.random() * MAX_TH * 0.6;
+    // Negative start so tiles cover y=0 — no seam gap when grid tiles vertically
+    let y = -(Math.random() * MAX_TH * 0.6);
     while (y < UH - GAP) {
       const h = Math.min(MIN_TH + Math.random() * (MAX_TH - MIN_TH), UH - y);
 
@@ -418,14 +419,12 @@ function animate(ts) {
   camera.position.set(cx, -cy, 1);
 
   // ── Zoom spring (camera.zoom) ─────────────────────────
-  // When scrolling: zoom out (< 1). When idle: spring back to 1.
-  // Only user-driven velocity (velX/velY), not the constant auto-scroll
-  const speed       = Math.sqrt(velX*velX + velY*velY);
-  const zoomTarget  = 1.0 - Math.min(speed * 0.014, 0.12);  // max ~12% zoom-out
+  scrollEnergy *= 0.88;                                  // decay each frame
+  const zoomTarget = 1.0 - scrollEnergy * 0.12;         // max 12% zoom-out
   distortSpd += (zoomTarget - distortVal) * 0.18;
   distortSpd *= 0.68;
   distortVal += distortSpd;
-  distortVal  = Math.max(0.8, Math.min(1.0, distortVal));
+  distortVal  = Math.max(0.85, Math.min(1.0, distortVal));
   camera.zoom = distortVal;
   camera.updateProjectionMatrix();
 
@@ -497,6 +496,8 @@ function onPointerMove(e) {
     panX += velX;
     panY += velY;
     prevMouse = { x: e.clientX, y: e.clientY };
+    const mag = Math.sqrt(dx*dx + dy*dy);
+    scrollEnergy = Math.min(scrollEnergy + mag * 0.008, 1.0);
     return;
   }
 
@@ -540,6 +541,8 @@ function onWheel(e) {
 
   panX -= dx * 0.5;
   panY += e.deltaY * 0.5;
+  const mag = Math.sqrt(dx*dx + e.deltaY*e.deltaY);
+  scrollEnergy = Math.min(scrollEnergy + mag * 0.004, 1.0);
 }
 
 // Touch (mobile)
