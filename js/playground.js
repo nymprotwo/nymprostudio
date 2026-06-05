@@ -399,11 +399,13 @@ function buildScene() {
     const cy = tile.y + tile.h/2;
 
     // Create 3×3 copies at offsets (ix*UW, iy*UH), ix/iy ∈ {-1,0,1}
+    // z offset by tile.y so tiles higher up render on top — prevents z-fighting
+    const tileZ = -tile.y * 0.0001;
     const copies = [];
     for (let iy = -1; iy <= 1; iy++) {
       for (let ix = -1; ix <= 1; ix++) {
         const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(cx + ix * UW, -(cy + iy * UH), 0);
+        mesh.position.set(cx + ix * UW, -(cy + iy * UH), tileZ);
         scene.add(mesh);
         copies.push(mesh);
       }
