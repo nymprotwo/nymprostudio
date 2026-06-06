@@ -12,13 +12,12 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
 import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 
 // ── Grid config ───────────────────────────────────────
-const UW       = 2400;  // repeating tile-unit width  (px)
-const UH       = 1800;  // repeating tile-unit height (px)
-const GAP      = 60;    // gap between tiles
+const UW       = 1200;  // repeating tile-unit width  (px)
+const UH       = 900;   // repeating tile-unit height (px)
+const GAP      = 20;    // gap between tiles
 
-// Zoom: show ~1440px of world space regardless of screen width.
-// On desktop (1440px) → ZOOM=1.0 (native).
-// On mobile (390px) → ZOOM≈3.7 (shows same tile count).
+// On 1440px screen: camera sees 1440 world units = 1.2× tile unit = ~6 columns visible.
+// On mobile (390px): ZOOM scales so you still see 6 columns.
 const ZOOM = Math.max(1.0, 1440 / window.innerWidth);
 
 // Image cycling
@@ -235,57 +234,46 @@ let raycaster, mouseVec, hoveredMat = null;
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
 // ── Masonry column layout ─────────────────────────────
-// 5 columns, each with 4 tiles of DIFFERENT heights.
-// Tiles include landscape, square, and portrait shapes.
-// Key: tiles in adjacent columns are NOT height-aligned →
-//      no visible horizontal seam lines across the grid.
-// Column widths sum to UW=2400 ✓
-// Each column's heights sum to UH=1800 ✓
+// UW=1200, UH=900, GAP=20 → tiles ~180-230px wide on screen.
+// 5 columns × 4 tiles = 20 tiles per tile-unit.
+// On 1440px screen: ~6 columns visible. On mobile: same thanks to ZOOM.
+// Column widths sum to 1200 ✓  Each column heights sum to 900 ✓
+// Adjacent columns have different tile heights → no horizontal seam lines.
 function buildLayout() {
-  const G = GAP / 2; // 30
+  const G = GAP / 2; // 10
   const tiles = [];
   const t = (ox, oy, ow, oh) =>
     tiles.push({ x: ox + G, y: oy + G, w: ow - GAP, h: oh - GAP });
 
-  // Col A — x=0, w=450  (net 390)
-  // heights: 350, 490, 380, 580 → sum=1800 ✓
-  // AR:  390/290=1.34  390/430=0.91  390/320=1.22  390/520=0.75
-  t(  0,    0, 450, 350);  // landscape
-  t(  0,  350, 450, 490);  // portrait
-  t(  0,  840, 450, 380);  // landscape
-  t(  0, 1220, 450, 580);  // portrait
+  // Col A — x=0,   w=220 (net 200).  Heights: 200,260,180,260=900 ✓
+  t(  0,   0, 220, 200);  // 200/180=1.11 landscape
+  t(  0, 200, 220, 260);  // 200/240=0.83 portrait
+  t(  0, 460, 220, 180);  // 200/160=1.25 landscape
+  t(  0, 640, 220, 260);  // 200/240=0.83 portrait
 
-  // Col B — x=450, w=500  (net 440)
-  // heights: 560, 340, 430, 470 → sum=1800 ✓
-  // AR:  440/500=0.88  440/280=1.57  440/370=1.19  440/410=1.07
-  t(450,    0, 500, 560);  // portrait
-  t(450,  560, 500, 340);  // landscape
-  t(450,  900, 500, 430);  // landscape
-  t(450, 1330, 500, 470);  // square-ish
+  // Col B — x=220, w=260 (net 240).  Heights: 250,180,270,200=900 ✓
+  t(220,   0, 260, 250);  // 240/230=1.04 square-ish
+  t(220, 250, 260, 180);  // 240/160=1.50 landscape
+  t(220, 430, 260, 270);  // 240/250=0.96 portrait-ish
+  t(220, 700, 260, 200);  // 240/180=1.33 landscape
 
-  // Col C — x=950, w=480  (net 420)
-  // heights: 400, 560, 360, 480 → sum=1800 ✓
-  // AR:  420/340=1.24  420/500=0.84  420/300=1.40  420/420=1.00
-  t(950,    0, 480, 400);  // landscape
-  t(950,  400, 480, 560);  // portrait
-  t(950,  960, 480, 360);  // landscape
-  t(950, 1320, 480, 480);  // square
+  // Col C — x=480, w=230 (net 210).  Heights: 230,270,190,210=900 ✓
+  t(480,   0, 230, 230);  // 210/210=1.00 square
+  t(480, 230, 230, 270);  // 210/250=0.84 portrait
+  t(480, 500, 230, 190);  // 210/170=1.24 landscape
+  t(480, 690, 230, 210);  // 210/190=1.11 landscape
 
-  // Col D — x=1430, w=490  (net 430)
-  // heights: 480, 370, 550, 400 → sum=1800 ✓
-  // AR:  430/420=1.02  430/310=1.39  430/490=0.88  430/340=1.26
-  t(1430,    0, 490, 480);  // square-ish
-  t(1430,  480, 490, 370);  // landscape
-  t(1430,  850, 490, 550);  // portrait
-  t(1430, 1400, 490, 400);  // landscape
+  // Col D — x=710, w=250 (net 230).  Heights: 270,200,240,190=900 ✓
+  t(710,   0, 250, 270);  // 230/250=0.92 portrait-ish
+  t(710, 270, 250, 200);  // 230/180=1.28 landscape
+  t(710, 470, 250, 240);  // 230/220=1.05 square-ish
+  t(710, 710, 250, 190);  // 230/170=1.35 landscape
 
-  // Col E — x=1920, w=480  (net 420)
-  // heights: 370, 530, 440, 460 → sum=1800 ✓
-  // AR:  420/310=1.35  420/470=0.89  420/380=1.11  420/400=1.05
-  t(1920,    0, 480, 370);  // landscape
-  t(1920,  370, 480, 530);  // portrait
-  t(1920,  900, 480, 440);  // landscape
-  t(1920, 1340, 480, 460);  // square-ish
+  // Col E — x=960, w=240 (net 220).  Heights: 210,260,220,210=900 ✓
+  t(960,   0, 240, 210);  // 220/190=1.16 landscape
+  t(960, 210, 240, 260);  // 220/240=0.92 portrait-ish
+  t(960, 470, 240, 220);  // 220/200=1.10 square-ish
+  t(960, 690, 240, 210);  // 220/190=1.16 landscape
 
   return tiles;
 }
