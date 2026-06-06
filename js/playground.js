@@ -233,44 +233,45 @@ let raycaster, mouseVec, hoveredMat = null;
 
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
-// ── Masonry column layout ─────────────────────────────
-// STRONG size hierarchy: narrow(160) vs wide(360) = 2.25× width difference.
-// Narrow cols: 4 small tiles (120px net). Wide cols: 3 big tiles (320px net).
-// Pattern: narrow–WIDE–narrow–WIDE–narrow (160+360+160+360+160=1200) ✓
-// Each column heights sum to UH=900 ✓
+// ── Chaotic mosaic layout ─────────────────────────────
+// No pattern. Columns have different widths, tiles have different heights.
+// Big tiles next to small ones, portrait next to landscape, no rhythm.
+// Col widths (no pattern): 200, 360, 160, 300, 180 = 1200 ✓
+// Each column heights sum to 900. Heights vary dramatically within cols.
 function buildLayout() {
   const G = GAP / 2; // 20
   const tiles = [];
   const t = (ox, oy, ow, oh) =>
     tiles.push({ x: ox + G, y: oy + G, w: ow - GAP, h: oh - GAP });
 
-  // Col A — x=0, w=160 (narrow, net 120). SMALL. 4× heights=900 ✓
-  t(  0,   0, 160, 200);  // portrait
-  t(  0, 200, 160, 240);  // portrait
-  t(  0, 440, 160, 220);  // portrait
-  t(  0, 660, 160, 240);  // portrait
+  // Col A — x=0, w=200 (net 160). Heights vary: tall→short→medium = 900 ✓
+  t(  0,   0, 200, 400);  // 160/360 = 0.44 — big portrait
+  t(  0, 400, 200, 280);  // 160/240 = 0.67 — portrait
+  t(  0, 680, 200, 220);  // 160/180 = 0.89 — squarish
 
-  // Col B — x=160, w=360 (wide, net 320). BIG. 3× heights=900 ✓
-  t(160,   0, 360, 320);  // 320/280=1.14 landscape
-  t(160, 320, 360, 280);  // 320/240=1.33 landscape
-  t(160, 600, 360, 300);  // 320/260=1.23 landscape
+  // Col B — x=200, w=360 (net 320). Mix of sizes = 900 ✓
+  t(200,   0, 360, 200);  // 320/160 = 2.00 — wide landscape
+  t(200, 200, 360, 340);  // 320/300 = 1.07 — big square
+  t(200, 540, 360, 180);  // 320/140 = 2.29 — very wide landscape
+  t(200, 720, 360, 180);  // 320/140 = 2.29 — very wide landscape
 
-  // Col C — x=520, w=160 (narrow, net 120). SMALL. 4× heights=900 ✓
-  t(520,   0, 160, 240);  // portrait
-  t(520, 240, 160, 200);  // portrait
-  t(520, 440, 160, 260);  // portrait
-  t(520, 700, 160, 200);  // portrait
+  // Col C — x=560, w=160 (net 120). Lots of small tiles = 900 ✓
+  t(560,   0, 160, 200);  // tiny portrait
+  t(560, 200, 160, 180);  // tiny portrait
+  t(560, 380, 160, 240);  // tiny portrait
+  t(560, 620, 160, 180);  // tiny portrait
+  t(560, 800, 160, 100);  // tiny sliver
 
-  // Col D — x=680, w=360 (wide, net 320). BIG. 3× heights=900 ✓
-  t(680,   0, 360, 290);  // 320/250=1.28 landscape
-  t(680, 290, 360, 320);  // 320/280=1.14 landscape
-  t(680, 610, 360, 290);  // 320/250=1.28 landscape
+  // Col D — x=720, w=300 (net 260). One huge tile + 2 medium = 900 ✓
+  t(720,   0, 300, 380);  // 260/340 = 0.76 — BIG portrait
+  t(720, 380, 300, 280);  // 260/240 = 1.08 — medium landscape
+  t(720, 660, 300, 240);  // 260/200 = 1.30 — medium landscape
 
-  // Col E — x=1040, w=160 (narrow, net 120). SMALL. 4× heights=900 ✓
-  t(1040,   0, 160, 220);  // portrait
-  t(1040, 220, 160, 240);  // portrait
-  t(1040, 460, 160, 210);  // portrait
-  t(1040, 670, 160, 230);  // portrait
+  // Col E — x=1020, w=180 (net 140). Alternating short/tall = 900 ✓
+  t(1020,   0, 180, 160);  // 140/120 = 1.17 — small landscape
+  t(1020, 160, 180, 320);  // 140/280 = 0.50 — tall portrait
+  t(1020, 480, 180, 200);  // 140/160 = 0.88 — small portrait
+  t(1020, 680, 180, 220);  // 140/180 = 0.78 — small portrait
 
   return tiles;
 }
