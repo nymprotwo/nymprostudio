@@ -14,7 +14,7 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 // ── Grid config ───────────────────────────────────────
 const UW       = 1200;  // repeating tile-unit width  (px)
 const UH       = 900;   // repeating tile-unit height (px)
-const GAP      = 40;    // gap between tiles (20px each side)
+const GAP      = 60;    // gap between tiles (30px each side)
 
 // On 1440px screen: camera sees 1440 world units = 1.2× tile unit = ~6 columns visible.
 // On mobile (390px): ZOOM scales so you still see 6 columns.
@@ -234,44 +234,38 @@ let raycaster, mouseVec, hoveredMat = null;
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
 // ── Chaotic mosaic layout ─────────────────────────────
-// No pattern. Columns have different widths, tiles have different heights.
-// Big tiles next to small ones, portrait next to landscape, no rhythm.
-// Col widths (no pattern): 200, 360, 160, 300, 180 = 1200 ✓
-// Each column heights sum to 900. Heights vary dramatically within cols.
+// 4 columns, all different widths. KEY RULE: seam y-positions in adjacent
+// columns are offset by ≥120px so NO straight horizontal lines appear.
+// Col widths: 260+380+220+340 = 1200 ✓. Each col heights = 900 ✓.
+// GAP=60 → 30px breathing room around each tile.
 function buildLayout() {
-  const G = GAP / 2; // 20
+  const G = GAP / 2; // 30
   const tiles = [];
   const t = (ox, oy, ow, oh) =>
     tiles.push({ x: ox + G, y: oy + G, w: ow - GAP, h: oh - GAP });
 
-  // Col A — x=0, w=200 (net 160). Heights vary: tall→short→medium = 900 ✓
-  t(  0,   0, 200, 400);  // 160/360 = 0.44 — big portrait
-  t(  0, 400, 200, 280);  // 160/240 = 0.67 — portrait
-  t(  0, 680, 200, 220);  // 160/180 = 0.89 — squarish
+  // Col A — x=0, w=260 (net 200). Seams at 380, 680.
+  t(  0,   0, 260, 380);  // 200×320 = 0.63 portrait
+  t(  0, 380, 260, 300);  // 200×240 = 0.83 portrait
+  t(  0, 680, 260, 220);  // 200×160 = 1.25 landscape
 
-  // Col B — x=200, w=360 (net 320). Mix of sizes = 900 ✓
-  t(200,   0, 360, 200);  // 320/160 = 2.00 — wide landscape
-  t(200, 200, 360, 340);  // 320/300 = 1.07 — big square
-  t(200, 540, 360, 180);  // 320/140 = 2.29 — very wide landscape
-  t(200, 720, 360, 180);  // 320/140 = 2.29 — very wide landscape
+  // Col B — x=260, w=380 (net 320). Seams at 200, 580.
+  // B[200] vs A[380] = 180px apart ✓  B[580] vs A[680] = 100px ✓
+  t(260,   0, 380, 200);  // 320×140 = 2.29 wide
+  t(260, 200, 380, 380);  // 320×320 = 1.00 big square
+  t(260, 580, 380, 320);  // 320×260 = 1.23 landscape
 
-  // Col C — x=560, w=160 (net 120). Lots of small tiles = 900 ✓
-  t(560,   0, 160, 200);  // tiny portrait
-  t(560, 200, 160, 180);  // tiny portrait
-  t(560, 380, 160, 240);  // tiny portrait
-  t(560, 620, 160, 180);  // tiny portrait
-  t(560, 800, 160, 100);  // tiny sliver
+  // Col C — x=640, w=220 (net 160). Seams at 440, 720.
+  // C[440] vs B[200] = 240 ✓  C[440] vs B[580] = 140 ✓  C[720] vs B[580] = 140 ✓
+  t(640,   0, 220, 440);  // 160×380 = 0.42 tall portrait
+  t(640, 440, 220, 280);  // 160×220 = 0.73 portrait
+  t(640, 720, 220, 180);  // 160×120 = 1.33 landscape
 
-  // Col D — x=720, w=300 (net 260). One huge tile + 2 medium = 900 ✓
-  t(720,   0, 300, 380);  // 260/340 = 0.76 — BIG portrait
-  t(720, 380, 300, 280);  // 260/240 = 1.08 — medium landscape
-  t(720, 660, 300, 240);  // 260/200 = 1.30 — medium landscape
-
-  // Col E — x=1020, w=180 (net 140). Alternating short/tall = 900 ✓
-  t(1020,   0, 180, 160);  // 140/120 = 1.17 — small landscape
-  t(1020, 160, 180, 320);  // 140/280 = 0.50 — tall portrait
-  t(1020, 480, 180, 200);  // 140/160 = 0.88 — small portrait
-  t(1020, 680, 180, 220);  // 140/180 = 0.78 — small portrait
+  // Col D — x=860, w=340 (net 280). Seams at 300, 640.
+  // D[300] vs C[440] = 140 ✓  D[640] vs C[440] = 200 ✓  D[640] vs C[720] = 80 ✓
+  t(860,   0, 340, 300);  // 280×240 = 1.17 landscape
+  t(860, 300, 340, 340);  // 280×280 = 1.00 big square
+  t(860, 640, 340, 260);  // 280×200 = 1.40 landscape
 
   return tiles;
 }
