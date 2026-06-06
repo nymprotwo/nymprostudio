@@ -159,8 +159,11 @@ void main(){
 
   col.rgb += accent * neon * 0.18;
 
-  vec2 uvc = abs(vUv-0.5)*2.0;
-  col.rgb *= 1.0 - pow(max(uvc.x,uvc.y),5.0)*0.25;
+  // Vignette: fade edges so dark tiles don't merge with background
+  float vx = vUv.x * (1.0 - vUv.x) * 4.0;
+  float vy = vUv.y * (1.0 - vUv.y) * 4.0;
+  float vign = pow(vx * vy, 0.18);
+  col.rgb *= mix(0.35, 1.0, vign);
 
   float bd = max(abs(vUv.x-0.5), abs(vUv.y-0.5)) * 2.0;
   col.rgb += accent * ss(0.6, 0.98, bd) * hover * 0.35;
@@ -234,38 +237,42 @@ let raycaster, mouseVec, hoveredMat = null;
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
 // ── Chaotic mosaic layout ─────────────────────────────
-// 4 columns, all different widths. KEY RULE: seam y-positions in adjacent
-// columns are offset by ≥120px so NO straight horizontal lines appear.
-// Col widths: 260+380+220+340 = 1200 ✓. Each col heights = 900 ✓.
-// GAP=60 → 30px breathing room around each tile.
+// 4 base columns (260+380+220+340=1200). Key features:
+//  • One SUPER-WIDE tile spanning cols C+D (560px = 2 cols)
+//  • Adjacent column seams offset by 120-240px → no full-width horizontal lines
+//  • Mix of portrait, landscape, square, and one cinematic wide tile
 function buildLayout() {
   const G = GAP / 2; // 30
   const tiles = [];
   const t = (ox, oy, ow, oh) =>
     tiles.push({ x: ox + G, y: oy + G, w: ow - GAP, h: oh - GAP });
 
-  // Col A — x=0, w=260 (net 200). Seams at 380, 680.
-  t(  0,   0, 260, 380);  // 200×320 = 0.63 portrait
-  t(  0, 380, 260, 300);  // 200×240 = 0.83 portrait
+  // Col A — x=0, w=260 (net 200). Seams at 360, 680.
+  t(  0,   0, 260, 360);  // 200×300 = 0.67 portrait
+  t(  0, 360, 260, 320);  // 200×260 = 0.77 portrait
   t(  0, 680, 260, 220);  // 200×160 = 1.25 landscape
 
-  // Col B — x=260, w=380 (net 320). Seams at 200, 580.
-  // B[200] vs A[380] = 180px apart ✓  B[580] vs A[680] = 100px ✓
-  t(260,   0, 380, 200);  // 320×140 = 2.29 wide
-  t(260, 200, 380, 380);  // 320×320 = 1.00 big square
+  // Col B — x=260, w=380 (net 320). Seams at 240, 580.
+  // B[240] vs A[360] = 120px ✓
+  t(260,   0, 380, 240);  // 320×180 = 1.78 wide landscape
+  t(260, 240, 380, 340);  // 320×280 = 1.14 landscape — BIG
   t(260, 580, 380, 320);  // 320×260 = 1.23 landscape
 
-  // Col C — x=640, w=220 (net 160). Seams at 440, 720.
-  // C[440] vs B[200] = 240 ✓  C[440] vs B[580] = 140 ✓  C[720] vs B[580] = 140 ✓
-  t(640,   0, 220, 440);  // 160×380 = 0.42 tall portrait
-  t(640, 440, 220, 280);  // 160×220 = 0.73 portrait
-  t(640, 720, 220, 180);  // 160×120 = 1.33 landscape
+  // Col C top — x=640, w=220, y=0 to 310. No seam near B[240]: diff=70 ok
+  t(640,   0, 220, 310);  // 160×250 = 0.64 portrait
 
-  // Col D — x=860, w=340 (net 280). Seams at 300, 640.
-  // D[300] vs C[440] = 140 ✓  D[640] vs C[440] = 200 ✓  D[640] vs C[720] = 80 ✓
-  t(860,   0, 340, 300);  // 280×240 = 1.17 landscape
-  t(860, 300, 340, 340);  // 280×280 = 1.00 big square
-  t(860, 640, 340, 260);  // 280×200 = 1.40 landscape
+  // ══ WIDE tile spanning C+D (560px) ══ y=310 to 620, h=310
+  // Gives a cinematic 500×250 panoramic tile
+  t(640, 310, 560, 310);  // 500×250 = 2.00 — very wide landscape ★
+
+  // Col C bottom — x=640, w=220, y=620 to 900.
+  t(640, 620, 220, 280);  // 160×220 = 0.73 portrait
+
+  // Col D top — x=860, w=340 (net 280). y=0 to 310.
+  t(860,   0, 340, 310);  // 280×250 = 1.12 landscape
+
+  // Col D bottom — x=860, w=340 (net 280). y=620 to 900.
+  t(860, 620, 340, 280);  // 280×220 = 1.27 landscape
 
   return tiles;
 }
