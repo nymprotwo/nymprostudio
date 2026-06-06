@@ -234,53 +234,58 @@ let raycaster, mouseVec, hoveredMat = null;
 
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
-// ── Hardcoded mosaic layout ───────────────────────────
-// 5 horizontal bands. ALL tiles are wider than tall (landscape).
-// Min width 360px → rendered 300px. Heights 340–380px → rendered 280–320px.
-// Aspect ratios: 1.0:1 to 1.9:1. No portrait tiles ever.
-// Band widths sum to UW=2400 ✓  Heights sum to UH=1800 ✓
-// Seam x-positions differ between bands → column lines broken.
+// ── Masonry column layout ─────────────────────────────
+// 5 columns, each with 4 tiles of DIFFERENT heights.
+// Tiles include landscape, square, and portrait shapes.
+// Key: tiles in adjacent columns are NOT height-aligned →
+//      no visible horizontal seam lines across the grid.
+// Column widths sum to UW=2400 ✓
+// Each column's heights sum to UH=1800 ✓
 function buildLayout() {
   const G = GAP / 2; // 30
   const tiles = [];
   const t = (ox, oy, ow, oh) =>
     tiles.push({ x: ox + G, y: oy + G, w: ow - GAP, h: oh - GAP });
 
-  // Band 1 — y=0,    h=340  seams: 360, 840, 1240, 1800
-  t(   0,    0,  360, 340);  // 1.06:1
-  t( 360,    0,  480, 340);  // 1.41:1
-  t( 840,    0,  400, 340);  // 1.18:1
-  t(1240,    0,  560, 340);  // 1.65:1
-  t(1800,    0,  600, 340);  // 1.76:1
+  // Col A — x=0, w=450  (net 390)
+  // heights: 350, 490, 380, 580 → sum=1800 ✓
+  // AR:  390/290=1.34  390/430=0.91  390/320=1.22  390/520=0.75
+  t(  0,    0, 450, 350);  // landscape
+  t(  0,  350, 450, 490);  // portrait
+  t(  0,  840, 450, 380);  // landscape
+  t(  0, 1220, 450, 580);  // portrait
 
-  // Band 2 — y=340,  h=380  seams: 500, 900, 1480, 1840
-  t(   0,  340,  500, 380);  // 1.32:1
-  t( 500,  340,  400, 380);  // 1.05:1
-  t( 900,  340,  580, 380);  // 1.53:1
-  t(1480,  340,  360, 380);  // 0.95:1 — near-square
-  t(1840,  340,  560, 380);  // 1.47:1
+  // Col B — x=450, w=500  (net 440)
+  // heights: 560, 340, 430, 470 → sum=1800 ✓
+  // AR:  440/500=0.88  440/280=1.57  440/370=1.19  440/410=1.07
+  t(450,    0, 500, 560);  // portrait
+  t(450,  560, 500, 340);  // landscape
+  t(450,  900, 500, 430);  // landscape
+  t(450, 1330, 500, 470);  // square-ish
 
-  // Band 3 — y=720,  h=350  seams: 440, 1000, 1360, 1900
-  t(   0,  720,  440, 350);  // 1.26:1
-  t( 440,  720,  560, 350);  // 1.60:1
-  t(1000,  720,  360, 350);  // 1.03:1 — near-square
-  t(1360,  720,  540, 350);  // 1.54:1
-  t(1900,  720,  500, 350);  // 1.43:1
+  // Col C — x=950, w=480  (net 420)
+  // heights: 400, 560, 360, 480 → sum=1800 ✓
+  // AR:  420/340=1.24  420/500=0.84  420/300=1.40  420/420=1.00
+  t(950,    0, 480, 400);  // landscape
+  t(950,  400, 480, 560);  // portrait
+  t(950,  960, 480, 360);  // landscape
+  t(950, 1320, 480, 480);  // square
 
-  // Band 4 — y=1070, h=360  seams: 460, 840, 1400, 1820
-  t(   0, 1070,  460, 360);  // 1.28:1
-  t( 460, 1070,  380, 360);  // 1.06:1
-  t( 840, 1070,  560, 360);  // 1.56:1
-  t(1400, 1070,  420, 360);  // 1.17:1
-  t(1820, 1070,  580, 360);  // 1.61:1
+  // Col D — x=1430, w=490  (net 430)
+  // heights: 480, 370, 550, 400 → sum=1800 ✓
+  // AR:  430/420=1.02  430/310=1.39  430/490=0.88  430/340=1.26
+  t(1430,    0, 490, 480);  // square-ish
+  t(1430,  480, 490, 370);  // landscape
+  t(1430,  850, 490, 550);  // portrait
+  t(1430, 1400, 490, 400);  // landscape
 
-  // Band 5 — y=1430, h=370  seams: 500, 920, 1380, 1820
-  // 340+380+350+360+370 = 1800 ✓
-  t(   0, 1430,  500, 370);  // 1.35:1
-  t( 500, 1430,  420, 370);  // 1.14:1
-  t( 920, 1430,  460, 370);  // 1.24:1
-  t(1380, 1430,  440, 370);  // 1.19:1
-  t(1820, 1430,  580, 370);  // 1.57:1
+  // Col E — x=1920, w=480  (net 420)
+  // heights: 370, 530, 440, 460 → sum=1800 ✓
+  // AR:  420/310=1.35  420/470=0.89  420/380=1.11  420/400=1.05
+  t(1920,    0, 480, 370);  // landscape
+  t(1920,  370, 480, 530);  // portrait
+  t(1920,  900, 480, 440);  // landscape
+  t(1920, 1340, 480, 460);  // square-ish
 
   return tiles;
 }
