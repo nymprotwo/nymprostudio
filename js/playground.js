@@ -14,7 +14,7 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 // ── Grid config ───────────────────────────────────────
 const UW       = 2000;  // repeating tile-unit width  (px)
 const UH       = 1500;  // repeating tile-unit height (px)
-const GAP      = 60;    // gap between tiles (30px each side)
+const GAP      = 72;    // gap between tiles (36px each side)
 
 // On 1440px screen: ZOOM=1, camera sees 1440 of 2000 world units (72%).
 // Pattern repeat is much less obvious than with 1200 unit.
@@ -524,6 +524,7 @@ function onPointerDown(e) {
   isDragging = true;
   prevMouse  = { x: e.clientX, y: e.clientY };
   velX = velY = 0;
+  hoveredMat = null; // clear hover — dragging should never show highlight
   elCanvas.style.cursor = 'grabbing';
 }
 
@@ -541,6 +542,8 @@ function onPointerMove(e) {
     return;
   }
 
+  // Don't update hover while scrolling — avoids stale highlight revealing tiling seams
+  if (scrollEnergy > 0.05) return;
   mouseVec.x =  (e.clientX / window.innerWidth)  * 2 - 1;
   mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouseVec, camera);
@@ -563,6 +566,7 @@ function onWheel(e) {
   velY += e.deltaY * 0.20;
   const mag = Math.sqrt(e.deltaX*e.deltaX + e.deltaY*e.deltaY);
   scrollEnergy = Math.min(scrollEnergy + mag * 0.01, 1.0);
+  hoveredMat = null; // clear hover immediately on scroll — prevents stale highlight revealing tiling
 }
 
 function onTouchStart(e) {
