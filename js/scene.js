@@ -17,17 +17,24 @@ let currentRotX = 0, currentRotY = 0;
 const startTime = performance.now();
 const getTime = () => (performance.now() - startTime) / 1000;
 
-// Reveal animation state: mask spins from back-facing (Y=π) to front (Y=0)
+// Reveal animation state
 let reveal = null; // { t0, duration }
+
+// Materials that need opacity fading during reveal
+let ptsMat = null;
+let edgeMat = null;
 
 export function playMaskReveal() {
   if (!maskGroup) return;
-  // Snap to back-facing, reset current rotation to match
-  currentRotY = Math.PI;
+  // Start slightly turned (1.1 rad ≈ 63°) — never goes edge-on (90°)
+  // so the mask is always recognisable, just angled
+  currentRotY = 1.1;
   targetRotX = 0;
   targetRotY = 0;
   currentRotX = 0;
-  reveal = { t0: getTime(), duration: 3.5 };
+  reveal = { t0: getTime(), duration: 3.2 };
+  // Start fully transparent — will fade in during reveal
+  setMaskOpacity(0);
 }
 
 // Public setter so input modules (mouse, gyro, touch) can drive rotation
@@ -137,7 +144,7 @@ function applyDotsMaterial() {
   }
   const ptsGeo = new THREE.BufferGeometry();
   ptsGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  const ptsMat = new THREE.PointsMaterial({
+  ptsMat = new THREE.PointsMaterial({
     color: ACCENT_BRIGHT,
     size: 0.012,
     transparent: true,
@@ -151,7 +158,7 @@ function applyDotsMaterial() {
 
   // Subtle silhouette for definition
   const edgeGeo = new THREE.EdgesGeometry(geo, 60);
-  const edgeMat = new THREE.LineBasicMaterial({
+  edgeMat = new THREE.LineBasicMaterial({
     color: ACCENT_BRIGHT,
     transparent: true,
     opacity: 0.6,        // +10pp from 0.5
@@ -186,24 +193,33 @@ function onMouseMove(e) {
   setMaskTarget(ny * 0.3, nx * 0.5);
 }
 
-// Ease in-out cubic — slow start, smooth finish (most cinematic for a reveal)
-function easeInOut3(x) { return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2; }
+// Ease out cubic — fast start, glides to rest
+function easeOut3(x) { return 1 - Math.pow(1 - x, 3); }
+
+function setMaskOpacity(v) {
+  if (baseMesh && baseMesh.material) baseMesh.material.opacity = 0.45 * v;
+  if (ptsMat)  ptsMat.opacity  = 1.0 * v;
+  if (edgeMat) edgeMat.opacity = 0.6  * v;
+}
 
 function tick() {
   const t = getTime();
 
   if (maskGroup) {
     if (reveal) {
-      // Reveal: rotate from π → 0 over `duration` seconds, ease-out
       const p = Math.min(1, (t - reveal.t0) / reveal.duration);
-      const rotY = Math.PI * (1 - easeInOut3(p));
-      maskGroup.rotation.x = Math.sin(t * 0.4) * 0.02;
-      maskGroup.rotation.y = rotY + Math.sin(t * 0.3) * 0.03 * p; // ambient wobble fades in
+      const ep = easeOut3(p);
+      // Rotate from 1.1rad → 0 (never goes flat / edge-on)
+      maskGroup.rotation.y = 1.1 * (1 - ep) + Math.sin(t * 0.3) * 0.03 * ep;
+      maskGroup.rotation.x = Math.sin(t * 0.4) * 0.02 * ep;
       maskGroup.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
+      // Fade in opacity in sync with rotation
+      setMaskOpacity(ep);
       if (p >= 1) {
         reveal = null;
-        currentRotY = 0; // prevent idle lerp from re-rotating
+        currentRotY = 0;
         currentRotX = 0;
+        setMaskOpacity(1); // ensure fully visible
       }
     } else {
       currentRotX += (targetRotX - currentRotX) * 0.06;
@@ -213,7 +229,7 @@ function tick() {
       maskGroup.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
     }
 
-    if (edges) {
+    if (edges && !reveal) {
       edges.material.opacity = 0.45 + Math.sin(t * 1.5) * 0.1;
     }
   }
