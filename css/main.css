@@ -134,7 +134,7 @@ button { font: inherit; background: none; border: none; color: inherit; cursor: 
 .header {
   position: fixed;
   top: 0; left: 0; right: 0;
-  z-index: 100;
+  z-index: 1000;
   padding: 1.5rem 2.5rem;
   display: flex;
   align-items: center;
