@@ -17,6 +17,19 @@ let currentRotX = 0, currentRotY = 0;
 const startTime = performance.now();
 const getTime = () => (performance.now() - startTime) / 1000;
 
+// Reveal animation state: mask spins from back-facing (Y=π) to front (Y=0)
+let reveal = null; // { t0, duration }
+
+export function playMaskReveal() {
+  if (!maskGroup) return;
+  // Snap to back-facing, reset current rotation to match
+  currentRotY = Math.PI;
+  targetRotX = 0;
+  targetRotY = 0;
+  currentRotX = 0;
+  reveal = { t0: getTime(), duration: 1.3 };
+}
+
 // Public setter so input modules (mouse, gyro, touch) can drive rotation
 export function setMaskTarget(rx, ry) {
   targetRotX = Math.max(-0.5, Math.min(0.5, rx));
@@ -173,15 +186,28 @@ function onMouseMove(e) {
   setMaskTarget(ny * 0.3, nx * 0.5);
 }
 
+// Ease out cubic
+function easeOut3(x) { return 1 - Math.pow(1 - x, 3); }
+
 function tick() {
   const t = getTime();
 
   if (maskGroup) {
-    currentRotX += (targetRotX - currentRotX) * 0.06;
-    currentRotY += (targetRotY - currentRotY) * 0.06;
-    maskGroup.rotation.x = currentRotX + Math.sin(t * 0.4) * 0.02;
-    maskGroup.rotation.y = currentRotY + Math.sin(t * 0.3) * 0.03;
-    maskGroup.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
+    if (reveal) {
+      // Reveal: rotate from π → 0 over `duration` seconds, ease-out
+      const p = Math.min(1, (t - reveal.t0) / reveal.duration);
+      const rotY = Math.PI * (1 - easeOut3(p));
+      maskGroup.rotation.x = Math.sin(t * 0.4) * 0.02;
+      maskGroup.rotation.y = rotY + Math.sin(t * 0.3) * 0.03 * p; // ambient wobble fades in
+      maskGroup.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
+      if (p >= 1) reveal = null; // done — hand back to normal idle loop
+    } else {
+      currentRotX += (targetRotX - currentRotX) * 0.06;
+      currentRotY += (targetRotY - currentRotY) * 0.06;
+      maskGroup.rotation.x = currentRotX + Math.sin(t * 0.4) * 0.02;
+      maskGroup.rotation.y = currentRotY + Math.sin(t * 0.3) * 0.03;
+      maskGroup.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
+    }
 
     if (edges) {
       edges.material.opacity = 0.45 + Math.sin(t * 1.5) * 0.1;
@@ -190,3 +216,4 @@ function tick() {
 
   renderer.render(scene, camera);
 }
+

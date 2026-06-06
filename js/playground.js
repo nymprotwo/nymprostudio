@@ -257,6 +257,8 @@ let switchCount = 0;
 let startTime   = 0;
 let active      = false;
 let rafId       = null;
+let dismissing  = false;
+let blackTex    = null;
 
 let raycaster, mouseVec, hoveredMat = null;
 
@@ -482,9 +484,11 @@ function animate(ts) {
     const mat = g.mat;
 
     if (g.transitioning) {
-      g.progress = Math.min(g.progress + 0.021, 1);
+      // During dismiss: faster dissolve (0.04 vs 0.021)
+      const spd = dismissing ? 0.04 : 0.021;
+      g.progress = Math.min(g.progress + spd, 1);
       mat.uniforms.progress.value = g.progress;
-      if (g.progress >= 1) {
+      if (g.progress >= 1 && !dismissing) {
         g.transitioning = false;
         g.progress = 0;
         g.idxA = g.idxB;
@@ -496,7 +500,7 @@ function animate(ts) {
         mat.uniforms.arB.value      = tB.userData.ar || 1;
         mat.uniforms.progress.value = 0;
       }
-    } else if (elapsed - g.lastSwitch > g.cycleEvery) {
+    } else if (!dismissing && elapsed - g.lastSwitch > g.cycleEvery) {
       g.lastSwitch    = elapsed;
       g.cycleEvery    = CYCLE_MIN + Math.random() * (CYCLE_MAX - CYCLE_MIN);
       g.transitioning = true;
@@ -645,6 +649,44 @@ export function initPlayground() {
     active    = true;
     rafId     = requestAnimationFrame(animate);
   });
+}
+
+// Called when logo is clicked from playground — dissolve tiles to black, then close
+export function dismissPlayground(onDone) {
+  if (dismissing) return;
+  dismissing = true;
+  hoveredMat = null;
+
+  // Lazy-create a 2×2 black texture
+  if (!blackTex) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 2;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, 2, 2);
+    blackTex = new THREE.CanvasTexture(cv);
+  }
+
+  // Fire all tiles toward black simultaneously, staggered slightly so it looks like rain
+  tileGroups.forEach((g, i) => {
+    const delay = i * 18; // ms offset — cascades across tiles
+    setTimeout(() => {
+      g.mat.uniforms.texB.value  = blackTex;
+      g.mat.uniforms.arB.value   = 1;
+      g.mat.uniforms.effectId.value = 0; // 8×8 block dissolve
+      g.mat.uniforms.progress.value = 0;
+      g.transitioning = true;
+      g.progress = 0;
+    }, delay);
+  });
+
+  // After all tiles finish (~1s + stagger), close the playground
+  const totalMs = tileGroups.length * 18 + 900;
+  setTimeout(() => {
+    hidePlayground();
+    dismissing = false;
+    if (onDone) onDone();
+  }, totalMs);
 }
 
 export function showPlayground() {
