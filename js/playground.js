@@ -210,13 +210,13 @@ const DistortShader = {
     varying vec2      vUv;
     void main(){
       vec2 uv = vUv * 2.0 - 1.0;
-      // Constant sphere effect: always-on barrel distortion (inside-sphere feel)
-      float base = 0.12;
-      // Extra distortion on scroll/drag
-      float k  = base + distort * 0.18;
+      // Inside-sphere: pincushion distortion (negative k = concave surface)
+      // Center appears deeper, edges wrap around you like inside a ball
+      float base = 0.10;
+      float k  = -(base + distort * 0.15);
       float r2 = dot(uv, uv);
       uv *= 1.0 + k * r2;
-      uv *= 1.0 + distort * 0.04;
+      uv *= 1.0 - distort * 0.03;
       uv = (uv + 1.0) * 0.5;
       // Chromatic aberration (only on scroll)
       float ca   = distort * 0.007;
@@ -470,6 +470,7 @@ function animate(ts) {
   distortVal += distortSpd;
   distortVal  = Math.max(0.78, Math.min(1.0, distortVal));
   camera.zoom = distortVal;
+  if (distortPass) distortPass.uniforms.distort.value = 1.0 - distortVal;
   camera.updateProjectionMatrix();
 
   if (elElapsed) {
