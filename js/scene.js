@@ -27,7 +27,7 @@ export function playMaskReveal() {
   targetRotX = 0;
   targetRotY = 0;
   currentRotX = 0;
-  reveal = { t0: getTime(), duration: 2.2 };
+  reveal = { t0: getTime(), duration: 3.5 };
 }
 
 // Public setter so input modules (mouse, gyro, touch) can drive rotation
@@ -186,8 +186,8 @@ function onMouseMove(e) {
   setMaskTarget(ny * 0.3, nx * 0.5);
 }
 
-// Ease out cubic
-function easeOut3(x) { return 1 - Math.pow(1 - x, 3); }
+// Ease in-out cubic — slow start, smooth finish (most cinematic for a reveal)
+function easeInOut3(x) { return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2; }
 
 function tick() {
   const t = getTime();
@@ -196,7 +196,7 @@ function tick() {
     if (reveal) {
       // Reveal: rotate from π → 0 over `duration` seconds, ease-out
       const p = Math.min(1, (t - reveal.t0) / reveal.duration);
-      const rotY = Math.PI * (1 - easeOut3(p));
+      const rotY = Math.PI * (1 - easeInOut3(p));
       maskGroup.rotation.x = Math.sin(t * 0.4) * 0.02;
       maskGroup.rotation.y = rotY + Math.sin(t * 0.3) * 0.03 * p; // ambient wobble fades in
       maskGroup.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
