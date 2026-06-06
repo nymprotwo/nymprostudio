@@ -27,7 +27,7 @@ export function playMaskReveal() {
   targetRotX = 0;
   targetRotY = 0;
   currentRotX = 0;
-  reveal = { t0: getTime(), duration: 1.3 };
+  reveal = { t0: getTime(), duration: 2.2 };
 }
 
 // Public setter so input modules (mouse, gyro, touch) can drive rotation
@@ -200,7 +200,11 @@ function tick() {
       maskGroup.rotation.x = Math.sin(t * 0.4) * 0.02;
       maskGroup.rotation.y = rotY + Math.sin(t * 0.3) * 0.03 * p; // ambient wobble fades in
       maskGroup.position.y = 0.1 + Math.sin(t * 0.8) * 0.05;
-      if (p >= 1) reveal = null; // done — hand back to normal idle loop
+      if (p >= 1) {
+        reveal = null;
+        currentRotY = 0; // prevent idle lerp from re-rotating
+        currentRotX = 0;
+      }
     } else {
       currentRotX += (targetRotX - currentRotX) * 0.06;
       currentRotY += (targetRotY - currentRotY) * 0.06;
