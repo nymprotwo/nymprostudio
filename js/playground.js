@@ -178,6 +178,7 @@ void main(){
 
   vec4 col = mix(colA, colB, clamp(t, 0.0, 1.0));
 
+  col.rgb *= 0.88; // slight global matte darkening
   col.rgb += accent * neon * 0.18;
 
   // Strong vignette: dark tile edges are clearly visible against black background
@@ -618,7 +619,7 @@ export function initPlayground() {
   renderer.setSize(W, H);
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x060509);
+  scene.background = new THREE.Color(0x0d0c12);
 
   camera = new THREE.OrthographicCamera(-W/2*ZOOM, W/2*ZOOM, H/2*ZOOM, -H/2*ZOOM, 0.1, 100);
   camera.position.set(UW/2, -UH/2, 1);
