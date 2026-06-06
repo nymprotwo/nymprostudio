@@ -559,8 +559,8 @@ function onPointerUp() {
 function onWheel(e) {
   e.preventDefault();
   e.stopPropagation();
-  velX += e.deltaX * 0.35;
-  velY += e.deltaY * 0.35;
+  velX += e.deltaX * 0.20;
+  velY += e.deltaY * 0.20;
   const mag = Math.sqrt(e.deltaX*e.deltaX + e.deltaY*e.deltaY);
   scrollEnergy = Math.min(scrollEnergy + mag * 0.01, 1.0);
 }
