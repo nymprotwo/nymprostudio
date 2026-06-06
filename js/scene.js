@@ -24,6 +24,10 @@ let reveal = null; // { t0, duration }
 let ptsMat = null;
 let edgeMat = null;
 
+export function hideMask() {
+  setMaskOpacity(0);
+}
+
 export function playMaskReveal() {
   if (!maskGroup) return;
   // Start slightly turned (1.1 rad ≈ 63°) — never goes edge-on (90°)

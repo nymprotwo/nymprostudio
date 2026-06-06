@@ -5,7 +5,7 @@
 // ?v=28 on every relative import — browser caches by URL, so without
 // this main.js?v=N reloads but its imports stay stale across deploys.
 import { runSplash } from './splash.js?v=28';
-import { initScene, playMaskReveal } from './scene.js?v=35';
+import { initScene, playMaskReveal, hideMask } from './scene.js?v=36';
 import { startRotator } from './rotator.js?v=28';
 import { initOverlays, registerExitHandler } from './overlays.js?v=28';
 import { startClock } from './clock.js?v=38';
@@ -43,6 +43,7 @@ initPlayground();
 // When logo is clicked: if playground is active, animate tiles out then reveal mask
 registerExitHandler(() => {
   if (document.body.dataset.page === 'playground') {
+    hideMask(); // hide immediately so it's not visible while playground fades
     dismissPlayground(() => setTimeout(playMaskReveal, 500));
   } else {
     hidePlayground();
