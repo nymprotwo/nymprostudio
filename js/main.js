@@ -5,7 +5,7 @@
 // ?v=28 on every relative import — browser caches by URL, so without
 // this main.js?v=N reloads but its imports stay stale across deploys.
 import { runSplash } from './splash.js?v=28';
-import { initScene, playMaskReveal, hideMask } from './scene.js?v=36';
+import { initScene, playMaskReveal, hideMask } from './scene.js?v=37';
 import { startRotator } from './rotator.js?v=28';
 import { initOverlays, registerExitHandler } from './overlays.js?v=28';
 import { startClock } from './clock.js?v=38';
@@ -18,7 +18,7 @@ import { initScrollEffects } from './scroll-effects.js?v=36';
 import { initFx } from './fx-switcher.js?v=33';
 import { initSkillsPreview } from './skills-preview.js?v=7';
 import { initContactPopup } from './contact-popup.js?v=2';
-import { initPlayground, showPlayground, hidePlayground, dismissPlayground } from './playground.js?v=61';
+import { initPlayground, showPlayground, hidePlayground, dismissPlayground } from './playground.js?v=62';
 
 const splashEl = document.getElementById('splash');
 const barEl = document.getElementById('splash-bar');

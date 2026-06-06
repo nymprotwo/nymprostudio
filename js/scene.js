@@ -25,19 +25,17 @@ let ptsMat = null;
 let edgeMat = null;
 
 export function hideMask() {
-  setMaskOpacity(0);
+  if (maskGroup) maskGroup.visible = false;
 }
 
 export function playMaskReveal() {
   if (!maskGroup) return;
-  // Start slightly turned (1.1 rad ≈ 63°) — never goes edge-on (90°)
-  // so the mask is always recognisable, just angled
+  maskGroup.visible = true;
   currentRotY = 1.1;
   targetRotX = 0;
   targetRotY = 0;
   currentRotX = 0;
   reveal = { t0: getTime(), duration: 3.2 };
-  // Start fully transparent — will fade in during reveal
   setMaskOpacity(0);
 }
 

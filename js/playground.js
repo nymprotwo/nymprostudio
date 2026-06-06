@@ -186,9 +186,11 @@ void main(){
   float vy = vUv.y * (1.0 - vUv.y) * 4.0;
   float vign = pow(min(vx, vy), 0.2);
   col.rgb *= mix(0.25, 1.0, vign);
-  // Border: subtle cyan rim (always) + bright hover glow
+  // Border: subtle cyan rim, fades out when tile is dark (dissolve to black hides it)
   float bd = max(abs(vUv.x - 0.5), abs(vUv.y - 0.5)) * 2.0;
-  col.rgb += accent * ss(0.90, 0.97, bd) * 0.07;
+  float luma = dot(col.rgb, vec3(0.2126, 0.7152, 0.0722));
+  float rimVis = smoothstep(0.0, 0.12, luma);
+  col.rgb += accent * ss(0.90, 0.97, bd) * 0.07 * rimVis;
   col.rgb += accent * ss(0.6, 0.98, bd) * hover * 0.35;
   col.rgb += accent * ss(0.965, 0.985, bd) * hover * 1.2;
 
