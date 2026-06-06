@@ -14,14 +14,12 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 // ── Grid config ───────────────────────────────────────
 const UW       = 2400;  // repeating tile-unit width  (px)
 const UH       = 1800;  // repeating tile-unit height (px)
-const N_COLS     = 6;   // regular columns; 3 feature cols (each 2×) → 12 units = 200px/unit
-const GAP        = 65;  // gap between tiles
-const MIN_TH     = 130; // min tile height (px)
-const MAX_TH     = 420; // max tile height (px)
-// Feature columns spread evenly at positions 1, 4, 7 among 9 total cols
-const WIDE_COL_A = 1;   // mostly large   (35% split)
-const WIDE_COL_B = 4;   // balanced chaos (55% split)
-const WIDE_COL_C = 7;   // mostly 2-small (75% split)
+const GAP      = 60;    // gap between tiles
+
+// Zoom: show ~1440px of world space regardless of screen width.
+// On desktop (1440px) → ZOOM=1.0 (native).
+// On mobile (390px) → ZOOM≈3.7 (shows same tile count).
+const ZOOM = Math.max(1.0, 1440 / window.innerWidth);
 
 // Image cycling
 const CYCLE_MIN = 2;
@@ -30,8 +28,6 @@ const CYCLE_MAX = 8;
 // Auto-scroll speed (world units/frame upward)
 const AUTO_SCROLL = 0.35;
 
-// Zoom out factor — >1 shows more of the grid (1.0 = native pixel size)
-const ZOOM = 1.0;
 
 const IMAGES = [
   './assets/playground/b3.webp',
@@ -83,82 +79,63 @@ vec2 coverUV(vec2 uv, float tile, float tex) {
 
 float ss(float a, float b, float x){ return smoothstep(a, b, x); }
 
-// Returns how "neon-active" this pixel is — 1.0 = fully lit front edge
 float neonFront(float raw) {
-  // raw = transition progress for this pixel (0..1, before smoothstep)
-  // Pixels near raw=progress are the "leading edge" — glow brightest there
   float front = 1.0 - abs(raw - progress) * 8.0;
   return clamp(front, 0.0, 1.0);
 }
 
 void main(){
-  vec3 accent = vec3(0.18, 0.58, 1.0);  // site cyan-blue
+  vec3 accent = vec3(0.18, 0.58, 1.0);
 
-  // ── Hover zoom ───────────────────────────────────────
   float hz  = 1.0 - hover * 0.045;
   vec2  huv = (vUv - 0.5) * hz + 0.5;
 
   vec4 colA = texture2D(texA, coverUV(huv, tileAR, arA));
   vec4 colB = texture2D(texB, coverUV(huv, tileAR, arB));
 
-  // ── Transition — compute t (blend) and neon (edge glow) ──
   float t    = 0.0;
   float neon = 0.0;
-  // Fade neon in mid-transition only (not at start/end)
   float midFade = ss(0.05, 0.2, progress) * ss(0.05, 0.2, 1.0 - progress);
 
   if (effectId == 0) {
-    // 8×8 block dissolve
     vec2  bUv = floor(vUv*8.0)/8.0;
     float raw = rand(bUv);
     float ft  = clamp(progress*1.4 - raw*0.4, 0.0, 1.0);
     t    = ft*ft*(3.0-2.0*ft);
     neon = neonFront(raw) * midFade;
-
   } else if (effectId == 1) {
-    // Fine 16×16 block scatter
     vec2  bUv = floor(vUv*16.0)/16.0;
     float raw = rand(bUv);
     float ft  = clamp(progress*1.5 - raw*0.5, 0.0, 1.0);
     t    = ft*ft*(3.0-2.0*ft);
     neon = neonFront(raw) * midFade;
-
   } else if (effectId == 2) {
-    // Radial from center
     float dist = length(vUv - 0.5) * 1.414;
     float noise = rand(floor(vUv*12.0)/12.0) * 0.3;
     float raw   = dist * 0.7 + noise;
     t    = ss(0.0, 1.0, clamp(progress*1.3 - raw, 0.0, 1.0));
     neon = neonFront(raw / 1.3) * midFade;
-
   } else if (effectId == 3) {
-    // Left-edge wipe with glitch
     float n      = rand(floor(vUv*vec2(1.0,20.0))/vec2(1.0,20.0)) * 0.08;
     float glitch = rand(vec2(floor(vUv.y*30.0), progress*50.0)) * 0.07;
     float raw    = vUv.x * 0.85 - n - glitch;
     t    = ss(0.0, 0.12, clamp(progress - raw, 0.0, 1.0));
     neon = (1.0 - abs((progress - raw) * 12.0)) * midFade;
     neon = clamp(neon, 0.0, 1.0);
-
   } else if (effectId == 4) {
-    // Diagonal wipe
     float diag = (vUv.x + vUv.y) * 0.5;
     float n    = rand(floor(vUv*10.0)/10.0) * 0.15;
     float raw  = (diag - n) / 1.3;
     t    = ss(0.0, 0.18, clamp(progress*1.3 - diag + n, 0.0, 1.0));
     neon = (1.0 - abs((progress - raw) * 10.0)) * midFade;
     neon = clamp(neon, 0.0, 1.0);
-
   } else if (effectId == 5) {
-    // Chunky 4×4 blocks
     vec2  bUv = floor(vUv*4.0)/4.0;
     float raw = rand(bUv + vec2(0.1, progress)) * 0.3 + rand(bUv) * 0.3;
     float ft  = clamp(progress*1.3 - raw, 0.0, 1.0);
     t    = ft*ft*(3.0-2.0*ft);
     neon = neonFront(raw / 1.3) * midFade;
-
   } else if (effectId == 6) {
-    // Scan-line glitch
     float line   = floor(vUv.y * 24.0) / 24.0;
     float n      = rand(vec2(line, floor(progress*40.0)));
     float strip  = rand(vec2(line, 0.5));
@@ -170,9 +147,7 @@ void main(){
     t    = ss(delay, delay+0.5, progress);
     neon = (1.0 - abs(progress - (delay+0.25)) * 6.0) * midFade;
     neon = clamp(neon, 0.0, 1.0);
-
   } else {
-    // Right-edge scatter
     float dist = (1.0 - vUv.x);
     float n    = rand(floor(vUv*vec2(1.0,14.0))/vec2(1.0,14.0)) * 0.25;
     float raw  = dist * 0.7 - n;
@@ -183,14 +158,11 @@ void main(){
 
   vec4 col = mix(colA, colB, clamp(t, 0.0, 1.0));
 
-  // ── Neon front-edge glow — subtle, just a hint ───────
   col.rgb += accent * neon * 0.18;
 
-  // ── Soft vignette ────────────────────────────────────
   vec2 uvc = abs(vUv-0.5)*2.0;
   col.rgb *= 1.0 - pow(max(uvc.x,uvc.y),5.0)*0.25;
 
-  // ── Hover: inner glow + thin border ──────────────────
   float bd = max(abs(vUv.x-0.5), abs(vUv.y-0.5)) * 2.0;
   col.rgb += accent * ss(0.6, 0.98, bd) * hover * 0.35;
   col.rgb += accent * ss(0.965, 0.985, bd) * hover * 1.2;
@@ -199,12 +171,10 @@ void main(){
 }`;
 
 // ── Post-process: barrel + chromatic aberration on scroll ──
-// ShaderPass format: uniforms + vertexShader + fragmentShader.
-// tDiffuse is injected automatically by ShaderPass.
 const DistortShader = {
   uniforms: {
     tDiffuse: { value: null },
-    distort:  { value: 0.0 },   // 0..1 spring-driven
+    distort:  { value: 0.0 },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -215,22 +185,16 @@ const DistortShader = {
     varying vec2      vUv;
     void main(){
       vec2 uv = vUv * 2.0 - 1.0;
-
-      // Barrel (sphere) distortion
       float k  = distort * 0.18;
       float r2 = dot(uv, uv);
       uv *= 1.0 + k * r2;
-      // Zoom-out so corners stay filled
       uv *= 1.0 + distort * 0.05;
       uv = (uv + 1.0) * 0.5;
-
-      // Chromatic aberration — RGB channels split outward from center
       float ca   = distort * 0.008;
       vec2  dir  = vUv - 0.5;
       vec4  colR = texture2D(tDiffuse, uv + dir * ca);
       vec4  colG = texture2D(tDiffuse, uv);
       vec4  colB = texture2D(tDiffuse, uv - dir * ca);
-
       vec4 col;
       if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
         col = vec4(0.024, 0.02, 0.035, 1.0);
@@ -247,16 +211,15 @@ let composer = null;
 let distortPass = null;
 
 let textures   = [];
-let baseTiles  = [];   // {x,y,w,h} layout
-let tileGroups = [];   // per base-tile: {mat, copies[9 meshes], userData}
+let baseTiles  = [];
+let tileGroups = [];
 
-let panX = UW/2, panY = UH/2;  // camera target (unbounded)
+let panX = UW/2, panY = UH/2;
 let velX = 0, velY = 0;
 
-// Spring state for distortion
-let distortVal   = 1.0; // current zoom (1 = normal, <1 = zoomed out)
-let distortSpd   = 0;   // spring velocity
-let scrollEnergy = 0;   // boosted by any user input, decays each frame
+let distortVal   = 1.0;
+let distortSpd   = 0;
+let scrollEnergy = 0;
 
 let isDragging = false;
 let prevMouse  = {x:0,y:0};
@@ -271,65 +234,54 @@ let raycaster, mouseVec, hoveredMat = null;
 
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
-// ── Layout generator ──────────────────────────────────
-// 6 regular cols + 3 feature cols (each 2×) = 12 unit-widths → 200px/unit.
-// Positions: reg(0), A(1), reg(2), reg(3), B(4), reg(5), reg(6), C(7), reg(8)
+// ── Hardcoded mosaic layout ───────────────────────────
+// 5 horizontal bands. ALL tiles are wider than tall (landscape).
+// Min width 360px → rendered 300px. Heights 340–380px → rendered 280–320px.
+// Aspect ratios: 1.0:1 to 1.9:1. No portrait tiles ever.
+// Band widths sum to UW=2400 ✓  Heights sum to UH=1800 ✓
+// Seam x-positions differ between bands → column lines broken.
 function buildLayout() {
-  const unitW     = UW / (N_COLS + 6); // 6 + 3×2 = 12 units → 200px
-  const featW     = unitW * 2;          // feature = 400px
-  const totalCols = N_COLS + 3;         // 6 + 3 = 9 columns
-
-  const SPLIT_P = { [WIDE_COL_A]: 0.35, [WIDE_COL_B]: 0.55, [WIDE_COL_C]: 0.75 };
-
-  // Width multipliers for the 6 regular columns. Must sum to 6 so total UW unchanged.
-  // Varying widths break the "identical column" look — narrower next to wider.
-  const REG_W_MULT = [0.78, 1.18, 0.92, 1.12, 0.88, 1.12]; // sums to 6.0
-  let regCursor    = 0;
-
-  const cols = [];
-  let x = 0;
-  for (let c = 0; c < totalCols; c++) {
-    const feat = SPLIT_P[c] !== undefined;
-    const w    = feat ? featW : unitW * REG_W_MULT[regCursor++ % REG_W_MULT.length];
-    cols.push({ x, w, splitP: SPLIT_P[c] ?? 0 });
-    x += w;
-  }
-
-  // Per-column TILE COUNT — controls visual rhythm. Strict alternation between
-  // "few big tiles" and "many small tiles" so adjacent columns can never look alike.
-  // Pattern: 3, 6, 4, 7, 3, 6, 4, 7, 3 → always big change between neighbors.
-  const COUNTS = [3, 6, 4, 7];
-
+  const G = GAP / 2; // 30
   const tiles = [];
-  cols.forEach((col, colIdx) => {
-    const targetN = COUNTS[colIdx % COUNTS.length];
-    // Distribute UH across N tiles with ±20% jitter per row, then normalize to fit
-    const baseH = UH / targetN;
-    let rows    = [];
-    for (let i = 0; i < targetN; i++) {
-      rows.push(baseH * (0.8 + Math.random() * 0.4));    // 80–120% of baseH
-    }
-    // Normalize so total = UH exactly (seam stays perfect)
-    const sum = rows.reduce((a, b) => a + b, 0);
-    rows = rows.map(h => h * UH / sum);
+  const t = (ox, oy, ow, oh) =>
+    tiles.push({ x: ox + G, y: oy + G, w: ow - GAP, h: oh - GAP });
 
-    const stagger = Math.random() * baseH * 0.4;
-    let y         = -stagger;
+  // Band 1 — y=0,    h=340  seams: 360, 840, 1240, 1800
+  t(   0,    0,  360, 340);  // 1.06:1
+  t( 360,    0,  480, 340);  // 1.41:1
+  t( 840,    0,  400, 340);  // 1.18:1
+  t(1240,    0,  560, 340);  // 1.65:1
+  t(1800,    0,  600, 340);  // 1.76:1
 
-    // Now place tiles using fixed row heights
-    for (const h of rows) {
-      if (col.splitP > 0 && Math.random() < col.splitP) {
-        // Two side-by-side tiles with full GAP on outer + between
-        const subW = (col.w - GAP * 2) / 2;
-        tiles.push({ x: col.x + GAP/2,              y: y + GAP/2, w: subW, h: h - GAP });
-        tiles.push({ x: col.x + GAP/2 + subW + GAP, y: y + GAP/2, w: subW, h: h - GAP });
-      } else {
-        // Single tile, fills the column width — no random expansion
-        tiles.push({ x: col.x + GAP/2, y: y + GAP/2, w: col.w - GAP, h: h - GAP });
-      }
-      y += h;
-    }
-  });
+  // Band 2 — y=340,  h=380  seams: 500, 900, 1480, 1840
+  t(   0,  340,  500, 380);  // 1.32:1
+  t( 500,  340,  400, 380);  // 1.05:1
+  t( 900,  340,  580, 380);  // 1.53:1
+  t(1480,  340,  360, 380);  // 0.95:1 — near-square
+  t(1840,  340,  560, 380);  // 1.47:1
+
+  // Band 3 — y=720,  h=350  seams: 440, 1000, 1360, 1900
+  t(   0,  720,  440, 350);  // 1.26:1
+  t( 440,  720,  560, 350);  // 1.60:1
+  t(1000,  720,  360, 350);  // 1.03:1 — near-square
+  t(1360,  720,  540, 350);  // 1.54:1
+  t(1900,  720,  500, 350);  // 1.43:1
+
+  // Band 4 — y=1070, h=360  seams: 460, 840, 1400, 1820
+  t(   0, 1070,  460, 360);  // 1.28:1
+  t( 460, 1070,  380, 360);  // 1.06:1
+  t( 840, 1070,  560, 360);  // 1.56:1
+  t(1400, 1070,  420, 360);  // 1.17:1
+  t(1820, 1070,  580, 360);  // 1.61:1
+
+  // Band 5 — y=1430, h=370  seams: 500, 920, 1380, 1820
+  // 340+380+350+360+370 = 1800 ✓
+  t(   0, 1430,  500, 370);  // 1.35:1
+  t( 500, 1430,  420, 370);  // 1.14:1
+  t( 920, 1430,  460, 370);  // 1.24:1
+  t(1380, 1430,  440, 370);  // 1.19:1
+  t(1820, 1430,  580, 370);  // 1.57:1
+
   return tiles;
 }
 
@@ -337,7 +289,6 @@ function buildLayout() {
 function loadTextures() {
   const loader = new THREE.TextureLoader();
   return Promise.all(IMAGES.map(src => new Promise(res => {
-    // Read natural dimensions first via a plain Image — guaranteed correct
     const probe = new Image();
     probe.onload = () => {
       const ar = probe.naturalWidth / probe.naturalHeight || 1;
@@ -360,8 +311,6 @@ function loadTextures() {
 }
 
 // ── Scene build ───────────────────────────────────────
-// Shuffled index pool — returns indices in random order, never repeats
-// until the whole pool is exhausted, then reshuffles.
 function makePool(n) {
   const arr = Array.from({length: n}, (_, i) => i);
   for (let i = n - 1; i > 0; i--) {
@@ -375,12 +324,26 @@ function buildScene() {
   baseTiles  = buildLayout();
   tileGroups = [];
 
-  // Two independent shuffled pools so texA and texB never coincide
   let poolA = makePool(textures.length);
   let poolB = makePool(textures.length);
   let curA  = 0, curB = 0;
+  // Track last 6 assigned texA indices — skip repeats so neighbours never match
+  const recentA = [];
 
   const nextA = () => {
+    let attempts = 0;
+    while (attempts < textures.length) {
+      if (curA >= poolA.length) { poolA = makePool(textures.length); curA = 0; }
+      const idx = poolA[curA];
+      if (!recentA.includes(idx)) {
+        curA++;
+        recentA.push(idx);
+        if (recentA.length > 6) recentA.shift();
+        return idx;
+      }
+      curA++;
+      attempts++;
+    }
     if (curA >= poolA.length) { poolA = makePool(textures.length); curA = 0; }
     return poolA[curA++];
   };
@@ -392,7 +355,6 @@ function buildScene() {
   baseTiles.forEach(tile => {
     let idxA = nextA();
     let idxB = nextB();
-    // Ensure A ≠ B (rare collision case)
     if (idxB === idxA) idxB = (idxB + 1) % textures.length;
 
     const tA = textures[idxA], tB = textures[idxB];
@@ -413,13 +375,8 @@ function buildScene() {
     });
 
     const geo = new THREE.PlaneGeometry(tile.w, tile.h);
-
-    // Tile center in grid coordinates (y axis flipped for Three.js)
     const cx = tile.x + tile.w/2;
     const cy = tile.y + tile.h/2;
-
-    // Create 3×3 copies at offsets (ix*UW, iy*UH), ix/iy ∈ {-1,0,1}
-    // z offset by tile.y so tiles higher up render on top — prevents z-fighting
     const tileZ = -tile.y * 0.0001;
     const copies = [];
     for (let iy = -1; iy <= 1; iy++) {
@@ -436,7 +393,7 @@ function buildScene() {
       copies,
       idxA, idxB,
       cycleEvery:  CYCLE_MIN + Math.random()*(CYCLE_MAX-CYCLE_MIN),
-      lastSwitch:  -Math.random() * CYCLE_MAX,   // negative = fires immediately, staggered
+      lastSwitch:  -Math.random() * CYCLE_MAX,
       transitioning: false,
       progress:    0,
       hoverVal:    0,
@@ -454,44 +411,34 @@ function animate(ts) {
 
   const elapsed = (ts - startTime) / 1000;
 
-  // Auto-scroll upward (continuous slow drift)
   panY += AUTO_SCROLL;
-
-  // Apply inertia
   panX += velX;
   panY += velY;
-  // Cap velocity to prevent runaway on hard flicks
   const MAX_VEL = 25;
   velX = Math.max(-MAX_VEL, Math.min(MAX_VEL, velX));
   velY = Math.max(-MAX_VEL, Math.min(MAX_VEL, velY));
   velX *= 0.88;
   velY *= 0.88;
 
-  // Wrap camera position so it stays within [0, UW) × [0, UH)
-  // (seamless because tiles repeat every UW/UH)
   const cx = ((panX % UW) + UW) % UW;
   const cy = ((panY % UH) + UH) % UH;
   camera.position.set(cx, -cy, 1);
 
-  // ── Zoom spring (camera.zoom) ─────────────────────────
-  // Slow decay + soft spring = smooth ramp-in AND slow return, no snap
-  scrollEnergy *= 0.94;                                  // energy lingers longer
+  scrollEnergy *= 0.94;
   const zoomTarget = 1.0 - scrollEnergy * 0.20;
-  distortSpd += (zoomTarget - distortVal) * 0.045;      // gentler pull toward target
-  distortSpd *= 0.88;                                    // more damping = no bounce, glides
+  distortSpd += (zoomTarget - distortVal) * 0.045;
+  distortSpd *= 0.88;
   distortVal += distortSpd;
   distortVal  = Math.max(0.78, Math.min(1.0, distortVal));
   camera.zoom = distortVal;
   camera.updateProjectionMatrix();
 
-  // Elapsed display
   if (elElapsed) {
     const m = Math.floor(elapsed/60).toString().padStart(2,'0');
     const s = Math.floor(elapsed%60).toString().padStart(2,'0');
     elElapsed.textContent = `${m}:${s}`;
   }
 
-  // Tile cycling + hover
   tileGroups.forEach(g => {
     const mat = g.mat;
 
@@ -520,14 +467,12 @@ function animate(ts) {
       if (elSwitches) elSwitches.textContent = String(switchCount).padStart(3,'0');
     }
 
-    // Hover glow
     const hovered = g.mat === hoveredMat;
     g.hoverVal += hovered ? 0.1 : -0.1;
     g.hoverVal  = Math.max(0, Math.min(1, g.hoverVal));
     mat.uniforms.hover.value = g.hoverVal;
   });
 
-  // ── EffectComposer renders: scene → barrel+CA → screen ──
   if (composer) {
     composer.render();
   } else {
@@ -557,7 +502,6 @@ function onPointerMove(e) {
     return;
   }
 
-  // Hover raycasting
   mouseVec.x =  (e.clientX / window.innerWidth)  * 2 - 1;
   mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouseVec, camera);
@@ -573,9 +517,6 @@ function onPointerUp() {
   elCanvas.style.cursor = hoveredMat ? 'pointer' : 'grab';
 }
 
-// Trackpad: two-finger swipe fires wheel events.
-// Apply directly to pan (no velocity accumulation) — the OS/browser
-// already applies momentum deceleration to the delta stream.
 function onWheel(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -583,26 +524,21 @@ function onWheel(e) {
   const ax = Math.abs(e.deltaX);
   const ay = Math.abs(e.deltaY);
 
-  // macOS natural scroll inverts deltaX ONLY for pure-horizontal gestures.
-  // For diagonal / vertical events the sign is standard (left = negative).
-  // Detect pure-horizontal when |dX| clearly dominates, then un-invert it.
   let dx;
   if (ax < 2) {
-    dx = 0;                    // noise during vertical scroll — ignore
+    dx = 0;
   } else if (ax > ay * 1.5) {
-    dx = -e.deltaX;            // pure horizontal: natural scroll gave us flipped sign
+    dx = -e.deltaX;
   } else {
-    dx = e.deltaX;             // diagonal: standard sign
+    dx = e.deltaX;
   }
 
-  // Feed into velocity so animate loop applies inertia (coasting after lift)
   velX -= dx * 0.28;
   velY += e.deltaY * 0.28;
   const mag = Math.sqrt(dx*dx + e.deltaY*e.deltaY);
   scrollEnergy = Math.min(scrollEnergy + mag * 0.012, 1.0);
 }
 
-// Touch (mobile)
 function onTouchStart(e) {
   if (e.touches.length === 1) {
     prevTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -650,22 +586,18 @@ export function initPlayground() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x060509);
 
-  // Orthographic camera: zoomed out so ZOOM× more grid is visible
   camera = new THREE.OrthographicCamera(-W/2*ZOOM, W/2*ZOOM, H/2*ZOOM, -H/2*ZOOM, 0.1, 100);
   camera.position.set(UW/2, -UH/2, 1);
 
-  // ── EffectComposer post-processing ──
-  // Camera must exist before RenderPass is created
   composer    = new EffectComposer(renderer);
   composer.setSize(W, H);
-  composer.addPass(new RenderPass(scene, camera));   // pass 1: render scene
-  distortPass = new ShaderPass(DistortShader);        // pass 2: barrel + CA
+  composer.addPass(new RenderPass(scene, camera));
+  distortPass = new ShaderPass(DistortShader);
   composer.addPass(distortPass);
 
   raycaster = new THREE.Raycaster();
   mouseVec  = new THREE.Vector2();
 
-  // ── Events ──
   elCanvas.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointermove',   onPointerMove);
   window.addEventListener('pointerup',     onPointerUp);
@@ -677,7 +609,6 @@ export function initPlayground() {
 
   loadTextures().then(() => {
     buildScene();
-    // Start camera at grid center
     panX = UW/2;
     panY = UH/2;
     startTime = performance.now();
