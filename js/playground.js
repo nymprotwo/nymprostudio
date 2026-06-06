@@ -12,17 +12,17 @@ import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
 import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 
 // ── Grid config ───────────────────────────────────────
-const UW       = 1200;  // repeating tile-unit width  (px)
-const UH       = 900;   // repeating tile-unit height (px)
+const UW       = 2000;  // repeating tile-unit width  (px)
+const UH       = 1500;  // repeating tile-unit height (px)
 const GAP      = 60;    // gap between tiles (30px each side)
 
-// On 1440px screen: camera sees 1440 world units = 1.2× tile unit = ~6 columns visible.
-// On mobile (390px): ZOOM scales so you still see 6 columns.
+// On 1440px screen: ZOOM=1, camera sees 1440 of 2000 world units (72%).
+// Pattern repeat is much less obvious than with 1200 unit.
 const ZOOM = Math.max(1.0, 1440 / window.innerWidth);
 
-// Image cycling
-const CYCLE_MIN = 2;
-const CYCLE_MAX = 8;
+// Image cycling — big spread so tiles NEVER fire in sync
+const CYCLE_MIN = 4;
+const CYCLE_MAX = 18;
 
 // Auto-scroll speed (world units/frame upward)
 const AUTO_SCROLL = 0.35;
@@ -146,6 +146,27 @@ void main(){
     t    = ss(delay, delay+0.5, progress);
     neon = (1.0 - abs(progress - (delay+0.25)) * 6.0) * midFade;
     neon = clamp(neon, 0.0, 1.0);
+  } else if (effectId == 8) {
+    // Vertical blinds
+    float stripe = floor(vUv.x * 12.0) / 12.0;
+    float delay  = rand(vec2(stripe, 0.3)) * 0.4;
+    t    = ss(delay, delay + 0.6, progress);
+    neon = (1.0 - abs(progress - (delay + 0.3)) * 7.0) * midFade;
+    neon = clamp(neon, 0.0, 1.0);
+  } else if (effectId == 9) {
+    // Zoom dissolve
+    float dist = length(vUv - 0.5);
+    float n    = rand(floor(vUv * 8.0) / 8.0) * 0.2;
+    float raw  = dist * 0.8 + n;
+    t    = ss(0.0, 0.3, clamp(progress * 1.4 - raw, 0.0, 1.0));
+    neon = neonFront(raw / 1.4) * midFade;
+  } else if (effectId == 10) {
+    // Scanline wipe down
+    float n   = rand(vec2(floor(vUv.x * 20.0), 0.7)) * 0.08;
+    float raw = vUv.y + n;
+    t    = ss(0.0, 0.15, clamp(progress * 1.2 - raw, 0.0, 1.0));
+    neon = (1.0 - abs((progress - raw / 1.2) * 9.0)) * midFade;
+    neon = clamp(neon, 0.0, 1.0);
   } else {
     float dist = (1.0 - vUv.x);
     float n    = rand(floor(vUv*vec2(1.0,14.0))/vec2(1.0,14.0)) * 0.25;
@@ -159,11 +180,14 @@ void main(){
 
   col.rgb += accent * neon * 0.18;
 
-  // Vignette: fade edges so dark tiles don't merge with background
+  // Strong vignette: dark tile edges are clearly visible against black background
   float vx = vUv.x * (1.0 - vUv.x) * 4.0;
   float vy = vUv.y * (1.0 - vUv.y) * 4.0;
-  float vign = pow(vx * vy, 0.18);
-  col.rgb *= mix(0.35, 1.0, vign);
+  float vign = pow(min(vx, vy), 0.2);
+  col.rgb *= mix(0.25, 1.0, vign);
+  // Subtle always-on cyan rim so tiles read on any background
+  float bd = max(abs(vUv.x - 0.5), abs(vUv.y - 0.5)) * 2.0;
+  col.rgb += accent * ss(0.90, 0.97, bd) * 0.07;
 
   float bd = max(abs(vUv.x-0.5), abs(vUv.y-0.5)) * 2.0;
   col.rgb += accent * ss(0.6, 0.98, bd) * hover * 0.35;
@@ -237,42 +261,62 @@ let raycaster, mouseVec, hoveredMat = null;
 let elCells, elElapsed, elSwitches, elCanvas, elDebug;
 
 // ── Chaotic mosaic layout ─────────────────────────────
-// 4 base columns (260+380+220+340=1200). Key features:
-//  • One SUPER-WIDE tile spanning cols C+D (560px = 2 cols)
-//  • Adjacent column seams offset by 120-240px → no full-width horizontal lines
-//  • Mix of portrait, landscape, square, and one cinematic wide tile
+// UW=2000, UH=1500. 6 columns + 1 cinematic wide tile spanning cols 3+4.
+// Col widths: 280+380+260+440+300+340 = 2000 ✓
+// All adjacent column seams offset ≥120px → no full-width horizontal lines.
+// 24 tiles total. Pattern repeat takes 2000px to complete → hard to spot.
 function buildLayout() {
   const G = GAP / 2; // 30
   const tiles = [];
   const t = (ox, oy, ow, oh) =>
     tiles.push({ x: ox + G, y: oy + G, w: ow - GAP, h: oh - GAP });
 
-  // Col A — x=0, w=260 (net 200). Seams at 360, 680.
-  t(  0,   0, 260, 360);  // 200×300 = 0.67 portrait
-  t(  0, 360, 260, 320);  // 200×260 = 0.77 portrait
-  t(  0, 680, 260, 220);  // 200×160 = 1.25 landscape
+  // Col 1 — x=0, w=280 (net 220). Seams: 360, 760, 1120.
+  t(   0,    0, 280, 360);  // 220×300 = 0.73 portrait
+  t(   0,  360, 280, 400);  // 220×340 = 0.65 portrait
+  t(   0,  760, 280, 360);  // 220×300 = 0.73 portrait
+  t(   0, 1120, 280, 380);  // 220×320 = 0.69 portrait
 
-  // Col B — x=260, w=380 (net 320). Seams at 240, 580.
-  // B[240] vs A[360] = 120px ✓
-  t(260,   0, 380, 240);  // 320×180 = 1.78 wide landscape
-  t(260, 240, 380, 340);  // 320×280 = 1.14 landscape — BIG
-  t(260, 580, 380, 320);  // 320×260 = 1.23 landscape
+  // Col 2 — x=280, w=380 (net 320). Seams: 260, 620, 1020.
+  // [260] vs Col1[360] = 100 ✓
+  t( 280,    0, 380, 260);  // 320×200 = 1.60 landscape
+  t( 280,  260, 380, 360);  // 320×300 = 1.07 square — BIG
+  t( 280,  620, 380, 400);  // 320×340 = 0.94 square — BIG
+  t( 280, 1020, 380, 480);  // 320×420 = 0.76 tall portrait
 
-  // Col C top — x=640, w=220, y=0 to 310. No seam near B[240]: diff=70 ok
-  t(640,   0, 220, 310);  // 160×250 = 0.64 portrait
+  // Col 3 top — x=660, w=260 (net 200). y=0→500.
+  // [500] vs Col2[260]=240 ✓  [500] vs Col2[620]=120 ✓
+  t( 660,    0, 260, 500);  // 200×440 = 0.45 tall portrait
 
-  // ══ WIDE tile spanning C+D (560px) ══ y=310 to 620, h=310
-  // Gives a cinematic 500×250 panoramic tile
-  t(640, 310, 560, 310);  // 500×250 = 2.00 — very wide landscape ★
+  // ══ WIDE tile spanning Col3+4 — x=660, w=700 (net 640) ══
+  // y=500→820, h=320. Cinematic 640×260 panorama. ★
+  t( 660,  500, 700, 320);  // 640×260 = 2.46 ultra-wide ★
 
-  // Col C bottom — x=640, w=220, y=620 to 900.
-  t(640, 620, 220, 280);  // 160×220 = 0.73 portrait
+  // Col 3 bottom — x=660, w=260 (net 200). y=820→1500 = 680.
+  t( 660,  820, 260, 400);  // 200×340 = 0.59 portrait
+  t( 660, 1220, 260, 280);  // 200×220 = 0.91 squarish
 
-  // Col D top — x=860, w=340 (net 280). y=0 to 310.
-  t(860,   0, 340, 310);  // 280×250 = 1.12 landscape
+  // Col 4 top — x=920, w=440 (net 380). y=0→500.
+  t( 920,    0, 440, 500);  // 380×440 = 0.86 square-ish — BIG
 
-  // Col D bottom — x=860, w=340 (net 280). y=620 to 900.
-  t(860, 620, 340, 280);  // 280×220 = 1.27 landscape
+  // Col 4 bottom — x=920, w=440 (net 380). y=820→1500 = 680.
+  t( 920,  820, 440, 400);  // 380×340 = 1.12 landscape — BIG
+  t( 920, 1220, 440, 280);  // 380×220 = 1.73 wide landscape
+
+  // Col 5 — x=1360, w=300 (net 240). Seams: 400, 720, 1080.
+  // [400] vs Col4[500]=100 ✓  [720] vs Col4[820]=100 ✓
+  t(1360,    0, 300, 400);  // 240×340 = 0.71 portrait
+  t(1360,  400, 300, 320);  // 240×260 = 0.92 squarish
+  t(1360,  720, 300, 360);  // 240×300 = 0.80 portrait
+  t(1360, 1080, 300, 420);  // 240×360 = 0.67 portrait
+
+  // Col 6 — x=1660, w=340 (net 280). Seams: 280, 600, 940, 1260.
+  // [280] vs Col5[400]=120 ✓  [600] vs Col5[720]=120 ✓
+  t(1660,    0, 340, 280);  // 280×220 = 1.27 landscape
+  t(1660,  280, 340, 320);  // 280×260 = 1.08 landscape
+  t(1660,  600, 340, 340);  // 280×280 = 1.00 square
+  t(1660,  940, 340, 320);  // 280×260 = 1.08 landscape
+  t(1660, 1260, 340, 240);  // 280×180 = 1.56 landscape
 
   return tiles;
 }
@@ -359,7 +403,7 @@ function buildScene() {
         tileAR:   { value: tile.w / tile.h },
         arA:      { value: tA.userData.ar || 1 },
         arB:      { value: tB.userData.ar || 1 },
-        effectId: { value: Math.floor(Math.random() * 8) },
+        effectId: { value: Math.floor(Math.random() * 11) },
       },
       vertexShader:   VERT,
       fragmentShader: FRAG,
@@ -385,7 +429,7 @@ function buildScene() {
       copies,
       idxA, idxB,
       cycleEvery:  CYCLE_MIN + Math.random()*(CYCLE_MAX-CYCLE_MIN),
-      lastSwitch:  -Math.random() * CYCLE_MAX,
+      lastSwitch:  -(Math.random() * 30), // spread over 30s so tiles never sync
       transitioning: false,
       progress:    0,
       hoverVal:    0,
@@ -454,7 +498,7 @@ function animate(ts) {
       g.cycleEvery    = CYCLE_MIN + Math.random() * (CYCLE_MAX - CYCLE_MIN);
       g.transitioning = true;
       g.progress      = 0;
-      mat.uniforms.effectId.value = Math.floor(Math.random() * 8);
+      mat.uniforms.effectId.value = Math.floor(Math.random() * 11);
       switchCount++;
       if (elSwitches) elSwitches.textContent = String(switchCount).padStart(3,'0');
     }
