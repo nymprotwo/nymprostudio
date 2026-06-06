@@ -14,7 +14,7 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 // ── Grid config ───────────────────────────────────────
 const UW       = 1200;  // repeating tile-unit width  (px)
 const UH       = 900;   // repeating tile-unit height (px)
-const GAP      = 20;    // gap between tiles
+const GAP      = 40;    // gap between tiles (20px each side)
 
 // On 1440px screen: camera sees 1440 world units = 1.2× tile unit = ~6 columns visible.
 // On mobile (390px): ZOOM scales so you still see 6 columns.
