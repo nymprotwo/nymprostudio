@@ -555,23 +555,10 @@ function onPointerUp() {
 function onWheel(e) {
   e.preventDefault();
   e.stopPropagation();
-
-  const ax = Math.abs(e.deltaX);
-  const ay = Math.abs(e.deltaY);
-
-  let dx;
-  if (ax < 2) {
-    dx = 0;
-  } else if (ax > ay * 1.5) {
-    dx = -e.deltaX;
-  } else {
-    dx = e.deltaX;
-  }
-
-  velX -= dx * 0.28;
-  velY += e.deltaY * 0.28;
-  const mag = Math.sqrt(dx*dx + e.deltaY*e.deltaY);
-  scrollEnergy = Math.min(scrollEnergy + mag * 0.012, 1.0);
+  velX += e.deltaX * 0.35;
+  velY += e.deltaY * 0.35;
+  const mag = Math.sqrt(e.deltaX*e.deltaX + e.deltaY*e.deltaY);
+  scrollEnergy = Math.min(scrollEnergy + mag * 0.01, 1.0);
 }
 
 function onTouchStart(e) {
