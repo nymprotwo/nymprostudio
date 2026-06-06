@@ -18,7 +18,7 @@ const GAP      = 60;    // gap between tiles (30px each side)
 
 // On 1440px screen: ZOOM=1, camera sees 1440 of 2000 world units (72%).
 // Pattern repeat is much less obvious than with 1200 unit.
-const ZOOM = Math.max(1.0, 1440 / window.innerWidth);
+const ZOOM = Math.max(1.0, 1700 / window.innerWidth);
 
 // Image cycling — big spread so tiles NEVER fire in sync
 const CYCLE_MIN = 4;
