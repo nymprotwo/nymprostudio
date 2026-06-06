@@ -7,7 +7,7 @@
 import { runSplash } from './splash.js?v=28';
 import { initScene } from './scene.js?v=31';
 import { startRotator } from './rotator.js?v=28';
-import { initOverlays } from './overlays.js?v=28';
+import { initOverlays, registerExitHandler } from './overlays.js?v=28';
 import { startClock } from './clock.js?v=38';
 import { initShift } from './shift.js?v=28';
 import { initMobileInput } from './input-mobile.js?v=28';
@@ -40,6 +40,7 @@ initSkillsPreview();
 initContactPopup();
 startClock();
 initPlayground();
+registerExitHandler(hidePlayground);
 
 // Playground toggle
 document.getElementById('playground-toggle')?.addEventListener('click', showPlayground);
