@@ -210,13 +210,12 @@ const DistortShader = {
     varying vec2      vUv;
     void main(){
       vec2 uv = vUv * 2.0 - 1.0;
-      // Inside-sphere: pincushion distortion (negative k = concave surface)
-      // Center appears deeper, edges wrap around you like inside a ball
-      float base = 0.10;
-      float k  = -(base + distort * 0.15);
+      // Inside-sphere: pincushion distortion, only active during scroll
+      // At rest: distort=0 → k=0 → flat screen
+      // On scroll: distort grows → screen bends inward like inside a ball
+      float k  = -(distort * 0.40);
       float r2 = dot(uv, uv);
       uv *= 1.0 + k * r2;
-      uv *= 1.0 - distort * 0.03;
       uv = (uv + 1.0) * 0.5;
       // Chromatic aberration (only on scroll)
       float ca   = distort * 0.007;
