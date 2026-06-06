@@ -210,19 +210,23 @@ const DistortShader = {
     varying vec2      vUv;
     void main(){
       vec2 uv = vUv * 2.0 - 1.0;
-      float k  = distort * 0.18;
+      // Constant sphere effect: always-on barrel distortion (inside-sphere feel)
+      float base = 0.12;
+      // Extra distortion on scroll/drag
+      float k  = base + distort * 0.18;
       float r2 = dot(uv, uv);
       uv *= 1.0 + k * r2;
-      uv *= 1.0 + distort * 0.05;
+      uv *= 1.0 + distort * 0.04;
       uv = (uv + 1.0) * 0.5;
-      float ca   = distort * 0.008;
+      // Chromatic aberration (only on scroll)
+      float ca   = distort * 0.007;
       vec2  dir  = vUv - 0.5;
       vec4  colR = texture2D(tDiffuse, uv + dir * ca);
       vec4  colG = texture2D(tDiffuse, uv);
       vec4  colB = texture2D(tDiffuse, uv - dir * ca);
       vec4 col;
       if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-        col = vec4(0.024, 0.02, 0.035, 1.0);
+        col = vec4(0.051, 0.047, 0.071, 1.0);
       } else {
         col = vec4(colR.r, colG.g, colB.b, 1.0);
       }
