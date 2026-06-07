@@ -77,18 +77,8 @@ function loadCar() {
       const maxDim = Math.max(size.x, size.y, size.z);
       gltf.scene.scale.setScalar(3.2 / maxDim);   // fit to ~3.2 world units
 
-      // Dark carbon-fiber look with visible specular highlights
-      gltf.scene.traverse(obj => {
-        if (!obj.isMesh) return;
-        const old = Array.isArray(obj.material) ? obj.material : [obj.material];
-        const mats = old.map(m => new THREE.MeshPhongMaterial({
-          color:     0x1a1a22,
-          specular:  0x6688bb,
-          shininess: 120,
-          map:       m.map || null,
-        }));
-        obj.material = mats.length === 1 ? mats[0] : mats;
-      });
+      // Keep original materials — they look great as-is
+      // Just ensure they're visible (no override)
 
       carGroup.add(gltf.scene);
 
@@ -225,7 +215,8 @@ async function buildScene() {
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   blurPass = new ShaderPass(SpeedBlur);
-  blurPass.uniforms.amount.value = 1.0;
+  blurPass.uniforms.amount.value = 0.6;
+  blurPass.renderToScreen = true;
   composer.addPass(blurPass);
 
   buildRoad();
@@ -277,16 +268,18 @@ function animate() {
   const shX = Math.sin(tick * 2.1) * 0.003 + Math.sin(tick * 3.7) * 0.0015;
   const shY = Math.cos(tick * 1.3) * 0.0025;
 
-  // Camera sways subtly — NOT dramatic like hacker version
-  const camX = mouseXS * 0.18 + shX;
-  const camY = 2.0 + mouseYS * 0.08 + shY;
+  // Camera: mouse drives the look-at direction (like reference)
+  // Large range → strong turn feeling
+  const camX = mouseXS * 0.25 + shX;
+  const camY = 2.0 + mouseYS * 0.12 + shY;
   camera.position.set(camX, camY, 5.8);
-  camera.lookAt(mouseXS * 0.6, 0.5 + mouseYS * 0.15, -60);
+  camera.lookAt(mouseXS * 5.0, 0.5 + mouseYS * 0.5, -60);
 
-  // Car subtle rock
+  // Car: front follows mouse direction — main "steering" feel
   if (carGroup) {
-    carGroup.rotation.z = lerp(carGroup.rotation.z, -mouseXS * 0.025, 0.06);
-    carGroup.position.x = lerp(carGroup.position.x,  mouseXS * 0.10,  0.05);
+    carGroup.rotation.y = lerp(carGroup.rotation.y, Math.PI + mouseXS * 0.18, 0.08);
+    carGroup.rotation.z = lerp(carGroup.rotation.z, -mouseXS * 0.06,           0.08);
+    carGroup.position.x = lerp(carGroup.position.x,  mouseXS * 0.50,           0.06);
     carGroup.position.y = -0.55 + Math.sin(tick * 1.2) * 0.018;
   }
 
