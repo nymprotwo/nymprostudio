@@ -76,24 +76,17 @@ function loadCar() {
       const maxDim = Math.max(size.x, size.y, size.z);
       gltf.scene.scale.setScalar(3.2 / maxDim);   // fit to ~3.2 world units
 
-      // Make all materials dark metallic black (carbon-fiber look)
+      // Dark carbon-fiber look — MeshPhongMaterial, no envMap needed
       gltf.scene.traverse(obj => {
         if (!obj.isMesh) return;
-        obj.castShadow    = true;
-        obj.receiveShadow = false;
         const old = Array.isArray(obj.material) ? obj.material : [obj.material];
-        obj.material = old.map(m => {
-          const n = new THREE.MeshStandardMaterial({
-            color:        new THREE.Color(0x0a0a0c),
-            metalness:    0.95,
-            roughness:    0.22,
-            envMapIntensity: 1.8,
-          });
-          // copy any existing map for detail
-          if (m.map) { n.map = m.map; n.color.set(0x111114); }
-          return n;
-        });
-        if (obj.material.length === 1) obj.material = obj.material[0];
+        const mats = old.map(m => new THREE.MeshPhongMaterial({
+          color:     0x0d0d10,
+          specular:  0x334466,
+          shininess: 90,
+          map:       m.map || null,
+        }));
+        obj.material = mats.length === 1 ? mats[0] : mats;
       });
 
       carGroup.add(gltf.scene);
@@ -111,8 +104,8 @@ function loadCar() {
 
 // ── Red / white barriers ──────────────────────────
 function buildBarriers() {
-  const matR = new THREE.MeshStandardMaterial({ color: 0xcc1111, roughness: 0.6, metalness: 0.1 });
-  const matW = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.5, metalness: 0.1 });
+  const matR = new THREE.MeshPhongMaterial({ color: 0xcc1111 });
+  const matW = new THREE.MeshPhongMaterial({ color: 0xdddddd });
   const geo  = new THREE.BoxGeometry(0.28, 0.70, 0.28);
 
   for (let i = 0; i < SEG_N; i++) {
@@ -133,7 +126,7 @@ function buildRoad() {
   // Asphalt
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(ROAD_W, 400),
-    new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.95, metalness: 0.0 }),
+    new THREE.MeshPhongMaterial({ color: 0x080808 }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, -0.005, -160);
@@ -183,19 +176,6 @@ function buildSparks() {
   }
 }
 
-// ── Environment map for reflections ──────────────
-function buildEnvMap() {
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  // Simple procedural env — dark with subtle blue rim
-  const envScene = new THREE.Scene();
-  envScene.background = new THREE.Color(0x000000);
-  const envLight = new THREE.DirectionalLight(0x4488ff, 3);
-  envLight.position.set(-2, 3, 1);
-  envScene.add(envLight);
-  const envTex = pmrem.fromScene(envScene).texture;
-  scene.environment = envTex;
-  pmrem.dispose();
-}
 
 // ── Build scene ───────────────────────────────────
 async function buildScene() {
@@ -205,11 +185,7 @@ async function buildScene() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(W, H);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
-  renderer.toneMapping       = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
-  renderer.outputColorSpace  = THREE.SRGBColorSpace;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000000);
@@ -225,10 +201,6 @@ async function buildScene() {
   // Key: warm overhead
   const key = new THREE.DirectionalLight(0xfff5e0, 2.5);
   key.position.set(0, 6, 3);
-  key.castShadow = true;
-  key.shadow.mapSize.set(1024, 1024);
-  key.shadow.camera.near = 0.5;
-  key.shadow.camera.far  = 30;
   scene.add(key);
 
   // Rim: cool blue from below-front (gives carbon sheen)
@@ -256,7 +228,6 @@ async function buildScene() {
   blurPass.uniforms.amount.value = 0.55;
   composer.addPass(blurPass);
 
-  buildEnvMap();
   buildRoad();
   buildBarriers();
   buildSparks();
