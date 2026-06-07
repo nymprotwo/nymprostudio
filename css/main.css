@@ -1107,6 +1107,15 @@ a.cpop__link:hover { color: var(--accent); }
   border-color: #22c55e;
 }
 
+/* Contact popup — darker solid bg when on playground (images behind can be dark) */
+body[data-page="playground"] .cpop {
+  background: #12111e;
+  border-color: rgba(30, 159, 226, 0.25);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.95), 0 0 0 1px rgba(30,159,226,0.18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
 /* ─────────── CONTACT MARQUEE OVERLAY ─────────── */
 
 .cmq-layout {
