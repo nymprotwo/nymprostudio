@@ -35,13 +35,14 @@ const SpeedBlur = {
     varying vec2      vUv;
     void main(){
       vec2 dir = vUv - center;
-      float edgeMask = smoothstep(0.25, 0.72, length(dir));
+      // Stronger blur at edges, zero at centre (centre stays sharp)
+      float edgeMask = smoothstep(0.15, 0.60, length(dir));
       vec4 col = vec4(0.0);
-      for(int i=0;i<14;i++){
-        float t = float(i)/14.0;
-        col += texture2D(tDiffuse, vUv - dir * amount * t * edgeMask * 0.22);
+      for(int i=0;i<16;i++){
+        float t = float(i)/16.0;
+        col += texture2D(tDiffuse, vUv - dir * amount * t * edgeMask * 0.28);
       }
-      col /= 14.0;
+      col /= 16.0;
       gl_FragColor = col;
     }`,
 };
@@ -76,14 +77,14 @@ function loadCar() {
       const maxDim = Math.max(size.x, size.y, size.z);
       gltf.scene.scale.setScalar(3.2 / maxDim);   // fit to ~3.2 world units
 
-      // Dark carbon-fiber look — MeshPhongMaterial, no envMap needed
+      // Dark carbon-fiber look with visible specular highlights
       gltf.scene.traverse(obj => {
         if (!obj.isMesh) return;
         const old = Array.isArray(obj.material) ? obj.material : [obj.material];
         const mats = old.map(m => new THREE.MeshPhongMaterial({
-          color:     0x0d0d10,
-          specular:  0x334466,
-          shininess: 90,
+          color:     0x1a1a22,
+          specular:  0x6688bb,
+          shininess: 120,
           map:       m.map || null,
         }));
         obj.material = mats.length === 1 ? mats[0] : mats;
@@ -194,38 +195,37 @@ async function buildScene() {
   camera = new THREE.PerspectiveCamera(55, W / H, 0.1, 250);
   camera.position.set(0, 2.0, 5.8);
 
-  // ── Lighting ──────────────────────────────────
-  // Ambient
-  scene.add(new THREE.AmbientLight(0x111122, 0.8));
+  // ── Lighting — strong enough to see dark car ──
+  scene.add(new THREE.AmbientLight(0x223355, 2.5));
 
-  // Key: warm overhead
-  const key = new THREE.DirectionalLight(0xfff5e0, 2.5);
-  key.position.set(0, 6, 3);
+  // Key from above-front
+  const key = new THREE.DirectionalLight(0xffffff, 4.0);
+  key.position.set(0, 8, 5);
   scene.add(key);
 
-  // Rim: cool blue from below-front (gives carbon sheen)
-  const rim1 = new THREE.DirectionalLight(0x3399ff, 1.8);
-  rim1.position.set(0, -1, -4);
+  // Rim from below-front (signature carbon sheen)
+  const rim1 = new THREE.DirectionalLight(0x4499ff, 3.5);
+  rim1.position.set(0, -2, -6);
   scene.add(rim1);
 
-  // Side fill
-  const rimL = new THREE.DirectionalLight(0x224488, 1.2);
-  rimL.position.set(-5, 2, 0);
+  // Side fill lights
+  const rimL = new THREE.DirectionalLight(0x3366aa, 2.0);
+  rimL.position.set(-6, 3, 0);
   scene.add(rimL);
-  const rimR = new THREE.DirectionalLight(0x224488, 1.2);
-  rimR.position.set( 5, 2, 0);
+  const rimR = new THREE.DirectionalLight(0x3366aa, 2.0);
+  rimR.position.set( 6, 3, 0);
   scene.add(rimR);
 
-  // Ground bounce
-  const bounce = new THREE.PointLight(0x112233, 1.0, 12);
-  bounce.position.set(0, -1, 1);
-  scene.add(bounce);
+  // Strong point light right on the car
+  const spot = new THREE.PointLight(0xffffff, 3.0, 20);
+  spot.position.set(0, 4, 4);
+  scene.add(spot);
 
   // ── Post-processing ───────────────────────────
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   blurPass = new ShaderPass(SpeedBlur);
-  blurPass.uniforms.amount.value = 0.55;
+  blurPass.uniforms.amount.value = 1.0;
   composer.addPass(blurPass);
 
   buildRoad();
