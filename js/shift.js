@@ -238,11 +238,15 @@ async function buildScene() {
   buildBarriers();
   buildSparks();
 
-  await loadCar();
-
   window.addEventListener('mousemove', onMouse);
   window.addEventListener('resize',    onResize);
   sceneReady = true;
+
+  // Start rendering immediately — car loads in background
+  active = true;
+  rafId  = requestAnimationFrame(animate);
+
+  loadCar(); // fire and forget — car appears when ready
 }
 
 function teardown() {
@@ -336,13 +340,10 @@ export function showShift() {
   pg.style.display = 'block';
   requestAnimationFrame(() => pg.classList.add('is-visible'));
   if (!sceneReady) {
-    buildScene().then(() => {
-      active = true;
-      rafId  = requestAnimationFrame(animate);
-    });
+    buildScene(); // starts render loop internally
   } else {
     active = true;
-    rafId  = requestAnimationFrame(animate);
+    if (!rafId) rafId = requestAnimationFrame(animate);
   }
   pauseLenis();
   document.body.dataset.page = 'shift';
