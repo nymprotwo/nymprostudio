@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/css/main.css?v=63">
+<link rel="stylesheet" href="/css/main.css?v=64">
 
 <!-- Lenis smooth scroll (loaded eagerly so init can find it) -->
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.0.42/dist/lenis.min.js"></script>
@@ -352,6 +352,25 @@
   <div data-pg-debug style="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);color:#fff;font:11px/1.4 monospace;opacity:0.7;pointer-events:none;white-space:pre;"></div>
 </div>
 
-<script type="module" src="/js/main.js?v=125"></script>
+<!-- ── Shift / Hacker Racing page ─────────────── -->
+<div id="page-shift" style="display:none">
+  <canvas id="shift-canvas"></canvas>
+
+  <!-- HUD corners -->
+  <div class="sh-hud sh-hud--tl">
+    <div class="sh-hud__title">NYM // SHIFT</div>
+    <div class="sh-hud__sub">— HACKER RACING</div>
+  </div>
+  <div class="sh-hud sh-hud--tr">
+    <div class="sh-hud__sub">MOVE MOUSE TO STEER</div>
+  </div>
+
+  <!-- Close (reuse pg-close style) -->
+  <button class="pg-close" id="sh-close" aria-label="Exit shift">
+    <span></span><span></span>
+  </button>
+</div>
+
+<script type="module" src="/js/main.js?v=126"></script>
 </body>
 </html>

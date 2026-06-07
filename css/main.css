@@ -1301,6 +1301,66 @@ body[data-page="playground"] .cpop {
 }
 
 /* ─────────────────────────────────────────────────────
+   Shift / Hacker Racing
+   ───────────────────────────────────────────────────── */
+#page-shift {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: #030206;
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.16,1,0.3,1);
+}
+#page-shift.is-visible { opacity: 1; }
+
+#shift-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* HUD corners */
+.sh-hud {
+  position: fixed;
+  z-index: 910;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s 0.4s ease;
+  padding: 1.5rem 2rem;
+}
+#page-shift.is-visible .sh-hud { opacity: 1; }
+.sh-hud--tl { top: 0; left: 0; }
+.sh-hud--tr { top: 0; right: 0; text-align: right; }
+
+.sh-hud__title {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text);
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--accent);
+}
+.sh-hud__sub {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.16em;
+  color: rgba(234,234,234,0.38);
+  text-transform: uppercase;
+  margin-top: 0.3rem;
+}
+
+/* Close button for shift — reuse pg-close, but scoped */
+#page-shift .pg-close {
+  opacity: 0;
+  transition: opacity 0.4s 0.5s ease;
+}
+#page-shift.is-visible .pg-close { opacity: 0.55; }
+
+/* ─────────────────────────────────────────────────────
    Playground
    ───────────────────────────────────────────────────── */
 #page-playground {

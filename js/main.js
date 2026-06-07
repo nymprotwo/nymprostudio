@@ -9,7 +9,7 @@ import { initScene, playMaskReveal, hideMask } from './scene.js?v=37';
 import { startRotator } from './rotator.js?v=28';
 import { initOverlays, registerExitHandler } from './overlays.js?v=28';
 import { startClock } from './clock.js?v=38';
-import { initShift } from './shift.js?v=28';
+import { initShift, showShift, hideShift } from './shift.js?v=2';
 import { initMobileInput } from './input-mobile.js?v=28';
 import { initCursorStrip } from './cursor-strip.js?v=28';
 import { initNameHover } from './name-hover.js?v=37';
@@ -52,6 +52,8 @@ registerExitHandler(() => {
 
 // Playground toggle
 document.getElementById('playground-toggle')?.addEventListener('click', showPlayground);
+document.getElementById('shift-toggle')?.addEventListener('click', showShift);
+document.getElementById('sh-close')?.addEventListener('click', hideShift);
 document.getElementById('pg-close')?.addEventListener('click', hidePlayground); // start clock immediately — it doesn't need to wait for scene
 
 const splashPromise = runSplash();
