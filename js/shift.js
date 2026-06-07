@@ -289,13 +289,13 @@ function buildScene() {
   camera.position.set(0, 2.2, 5.5);
 
   // Road floor
-  scene.add(Object.assign(
-    new THREE.Mesh(
-      new THREE.PlaneGeometry(ROAD_W, 280),
-      new THREE.MeshBasicMaterial({ color: 0x030106 }),
-    ),
-    { rotation: { x: -Math.PI / 2, y: 0, z: 0 }, position: { x: 0, y: -0.006, z: -100 } },
-  ));
+  const floorMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROAD_W, 280),
+    new THREE.MeshBasicMaterial({ color: 0x030106 }),
+  );
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.position.set(0, -0.006, -100);
+  scene.add(floorMesh);
 
   // Road edge lines
   const edgeMat = new THREE.LineBasicMaterial({
