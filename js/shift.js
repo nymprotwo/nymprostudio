@@ -1,7 +1,6 @@
 // ─────────────────────────────────────────────────────
-// NYM / SHIFT — Hacker Racing Scene
-// Wireframe F1 car + infinite binary-code road.
-// Mouse X → camera lean + car lean. No controls needed.
+// NYM / SHIFT — Hacker Racing Scene  v3
+// Wireframe F1 + binary-code road. Mouse = gaze direction.
 // ─────────────────────────────────────────────────────
 
 import * as THREE from 'three';
@@ -14,13 +13,13 @@ import { registerExitHandler }    from './overlays.js?v=28';
 // ── Config ─────────────────────────────────────────
 const ACCENT   = 0x1E9FE2;
 const CHAR_SET = '010011NYM</>#{}01SHIFT10\\|!';
-const ROAD_W   = 7.2;
-const SEG_N    = 22;      // barrier panels per side
-const SEG_GAP  = 5.2;     // Z gap between panels
-const PART_N   = 90;      // char particles
-const SPEED    = 0.13;    // world units/frame
+const ROAD_W   = 7.0;
+const SEG_N    = 20;
+const SEG_GAP  = 5.5;
+const PART_N   = 100;
+const SPEED    = 0.14;
 
-// ── Radial speed-blur shader ──────────────────────
+// ── Radial speed-blur ─────────────────────────────
 const SpeedBlur = {
   uniforms: {
     tDiffuse: { value: null },
@@ -37,43 +36,48 @@ const SpeedBlur = {
     void main(){
       vec2 dir = vUv - center;
       vec4 col = vec4(0.);
-      for(int i=0;i<14;i++){
-        float t = float(i)/14.;
-        col += texture2D(tDiffuse, vUv - dir*speed*t*0.24);
+      for(int i=0;i<12;i++){
+        float t = float(i)/12.;
+        col += texture2D(tDiffuse, vUv - dir*speed*t*0.18);
       }
-      col /= 14.;
-      float vig = 1.0 - length(dir)*speed*2.2;
-      col.rgb *= max(0.12, vig);
-      col.rgb += vec3(0.01, 0.05, 0.16)*speed*length(dir);
+      col /= 12.;
+      // subtle cyan vignette at edges only
+      float edgeDist = length(dir);
+      float vig = 1.0 - edgeDist * speed * 1.2;
+      col.rgb *= max(0.55, vig);
+      col.rgb += vec3(0.01, 0.04, 0.12) * speed * edgeDist * 0.6;
       gl_FragColor = col;
     }`,
 };
 
-// ── Module state ──────────────────────────────────
+// ── State ─────────────────────────────────────────
 let renderer, scene, camera, composer, speedPass;
 let carGroup;
 let barrierL = [], barrierR = [], dashMeshes = [];
-let sparks   = [];   // { sp, vx, vy, vz }
+let sparks   = [];
 let charTexCache = {};
 
 let mouseXT = 0, mouseXS = 0;
+let mouseYT = 0, mouseYS = 0;
 let shakePhase = 0;
 let active = false, rafId = null;
 let sceneReady = false;
 
-// ── Helpers ───────────────────────────────────────
 const rnd  = (a, b) => a + Math.random() * (b - a);
 const lerp = (a, b, t) => a + (b - a) * t;
 
-// ── Char sprite textures ──────────────────────────
+// ── Char textures ─────────────────────────────────
 function getCharTex(ch) {
   if (charTexCache[ch]) return charTexCache[ch];
   const cv  = document.createElement('canvas');
   cv.width  = cv.height = 64;
   const ctx = cv.getContext('2d');
-  ctx.fillStyle = `rgba(30,159,226,${rnd(0.55, 1.0).toFixed(2)})`;
-  ctx.font      = 'bold 50px monospace';
-  ctx.textAlign = 'center';
+  // bright cyan glow
+  ctx.shadowColor = '#1E9FE2';
+  ctx.shadowBlur  = 14;
+  ctx.fillStyle   = '#a0e8ff';
+  ctx.font        = 'bold 50px monospace';
+  ctx.textAlign   = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(ch, 32, 32);
   const t = new THREE.CanvasTexture(cv);
@@ -88,78 +92,68 @@ function buildCar() {
   const wire = new THREE.LineBasicMaterial({
     color: ACCENT,
     transparent: true,
-    opacity: 0.88,
+    opacity: 1.0,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
-
-  // Dark fill gives the car volume — occlude objects behind
   const mkFill = () => new THREE.MeshBasicMaterial({
-    color: 0x010305,
-    transparent: true,
-    opacity: 0.96,
+    color: 0x000205,
+    transparent: false,
     side: THREE.FrontSide,
     depthWrite: true,
   });
 
-  // Box part: fill mesh + cyan wireframe edges
   const B = (w, h, d, x, y, z) => {
     const geo  = new THREE.BoxGeometry(w, h, d);
     const mesh = new THREE.Mesh(geo, mkFill());
     mesh.position.set(x, y, z);
-    const eg   = new THREE.EdgesGeometry(geo);
-    const ln   = new THREE.LineSegments(eg, wire.clone());
+    const eg = new THREE.EdgesGeometry(geo);
+    const ln = new THREE.LineSegments(eg, wire.clone());
     ln.position.set(x, y, z);
     carGroup.add(mesh, ln);
   };
-
-  // Cylinder part (wheels — rotated on Z)
-  const C = (r, h, x, y, z, segs = 10) => {
-    const geo  = new THREE.CylinderGeometry(r, r, h, segs);
+  const C = (r, h, x, y, z) => {
+    const geo  = new THREE.CylinderGeometry(r, r, h, 12);
     const mesh = new THREE.Mesh(geo, mkFill());
     mesh.position.set(x, y, z);
     mesh.rotation.z = Math.PI / 2;
-    const eg   = new THREE.EdgesGeometry(geo);
-    const ln   = new THREE.LineSegments(eg, wire.clone());
+    const eg = new THREE.EdgesGeometry(geo);
+    const ln = new THREE.LineSegments(eg, wire.clone());
     ln.position.set(x, y, z);
     ln.rotation.z = Math.PI / 2;
     carGroup.add(mesh, ln);
   };
 
-  // ── Body ──────────────────────────────────────
-  B(1.10, 0.23, 4.20,    0,    0.115,   0    ); // spine
-  B(0.36, 0.25, 2.10,  -0.61,  0.125,   0.18 ); // left sidepod
-  B(0.36, 0.25, 2.10,   0.61,  0.125,   0.18 ); // right sidepod
-  B(0.50, 0.34, 0.92,   0,     0.41,    0.22 ); // cockpit surround
-  B(0.16, 0.12, 1.40,   0,     0.07,   -2.10 ); // nose cone
+  // Body
+  B(1.10, 0.23, 4.20,    0,    0.115,   0   );
+  B(0.36, 0.25, 2.10,  -0.61,  0.125,   0.18);
+  B(0.36, 0.25, 2.10,   0.61,  0.125,   0.18);
+  B(0.50, 0.34, 0.92,   0,     0.41,    0.22);
+  B(0.16, 0.12, 1.40,   0,     0.07,   -2.10);
+  // Front wing
+  B(1.80, 0.048, 0.28,  0,     0.048,  -2.60);
+  B(0.05, 0.16,  0.36, -0.90,  0.08,   -2.60);
+  B(0.05, 0.16,  0.36,  0.90,  0.08,   -2.60);
+  // Rear wing
+  B(1.42, 0.065, 0.25,  0,     1.08,    1.55);
+  B(1.42, 0.050, 0.20,  0,     0.94,    1.50);
+  B(0.05, 0.60,  0.36, -0.71,  0.77,    1.55);
+  B(0.05, 0.60,  0.36,  0.71,  0.77,    1.55);
+  B(0.065,0.55,  0.08, -0.44,  0.73,    1.55);
+  B(0.065,0.55,  0.08,  0.44,  0.73,    1.55);
+  // Diffuser
+  B(0.78, 0.13, 0.42,   0,     0.045,   1.85);
+  // Wheels
+  C(0.39, 0.35, -1.05, 0.39,  1.15);
+  C(0.39, 0.35,  1.05, 0.39,  1.15);
+  C(0.28, 0.27, -1.00, 0.28, -1.62);
+  C(0.28, 0.27,  1.00, 0.28, -1.62);
 
-  // ── Front wing ────────────────────────────────
-  B(1.80, 0.048, 0.28,  0,     0.048,  -2.60 ); // main plane
-  B(0.05, 0.16,  0.36, -0.90,  0.08,   -2.60 ); // endplate L
-  B(0.05, 0.16,  0.36,  0.90,  0.08,   -2.60 ); // endplate R
-
-  // ── Rear wing ─────────────────────────────────
-  B(1.42, 0.065, 0.25,  0,     1.08,    1.55 ); // top blade
-  B(1.42, 0.050, 0.20,  0,     0.94,    1.50 ); // lower blade (DRS gap)
-  B(0.05, 0.60,  0.36, -0.71,  0.77,    1.55 ); // endplate L
-  B(0.05, 0.60,  0.36,  0.71,  0.77,    1.55 ); // endplate R
-  B(0.065,0.55,  0.08, -0.44,  0.73,    1.55 ); // strut L
-  B(0.065,0.55,  0.08,  0.44,  0.73,    1.55 ); // strut R
-
-  // ── Diffuser ──────────────────────────────────
-  B(0.78, 0.13, 0.42,   0,     0.045,   1.85 );
-
-  // ── Wheels ────────────────────────────────────
-  C(0.39, 0.35, -1.05, 0.39,  1.15); // rear L
-  C(0.39, 0.35,  1.05, 0.39,  1.15); // rear R
-  C(0.28, 0.27, -1.00, 0.28, -1.62); // front L (mostly hidden from behind)
-  C(0.28, 0.27,  1.00, 0.28, -1.62); // front R
-
-  carGroup.position.set(0, -0.28, 0.8);
+  carGroup.position.set(0, -0.3, 0.8);
   scene.add(carGroup);
 }
 
-// ── Code barrier panels ───────────────────────────
+// ── Code barrier texture ──────────────────────────
 function makeCodeTex() {
   const W = 128, H = 512;
   const cv  = document.createElement('canvas');
@@ -168,13 +162,18 @@ function makeCodeTex() {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
   ctx.font = '13px monospace';
-  const cols = 8, rows = 40;
+
+  // glowing bright text
+  ctx.shadowBlur = 8;
+  const rows = 40, cols = 8;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const ch    = CHAR_SET[Math.floor(Math.random() * CHAR_SET.length)];
-      const alpha = rnd(0.05, 0.80);
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle   = Math.random() > 0.12 ? '#1E9FE2' : '#c0eaff';
+      const alpha = rnd(0.25, 1.0);
+      ctx.globalAlpha  = alpha;
+      const bright     = Math.random() > 0.15;
+      ctx.fillStyle    = bright ? '#1E9FE2' : '#a0e8ff';
+      ctx.shadowColor  = bright ? '#1E9FE2' : '#a0e8ff';
       ctx.fillText(ch, c * 16 + 4, r * 13 + 13);
     }
   }
@@ -182,69 +181,79 @@ function makeCodeTex() {
   return new THREE.CanvasTexture(cv);
 }
 
+// ── Irregular barriers ────────────────────────────
+// Panels at varying heights, angles, distances — no flat wall feel
 function buildBarriers() {
-  const PW = 2.2, PH = 5.0;
-  const mat = {
+  const matCfg = {
     transparent: true,
-    opacity: 0.88,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
   };
-  const geo = new THREE.PlaneGeometry(PW, PH);
 
   for (let i = 0; i < SEG_N; i++) {
     const z = -i * SEG_GAP;
 
-    const mL = new THREE.MeshBasicMaterial({ ...mat, map: makeCodeTex() });
-    const mR = new THREE.MeshBasicMaterial({ ...mat, map: makeCodeTex() });
+    // Randomise each panel independently
+    const makePanel = (side) => {
+      // vary width/height slightly
+      const pw = rnd(1.4, 2.8);
+      const ph = rnd(2.0, 5.5);
+      const geo = new THREE.PlaneGeometry(pw, ph);
+      const mat = new THREE.MeshBasicMaterial({
+        ...matCfg,
+        opacity: rnd(0.55, 1.0),
+        map: makeCodeTex(),
+      });
+      const m = new THREE.Mesh(geo, mat);
 
-    const meshL = new THREE.Mesh(geo.clone(), mL);
-    meshL.position.set(-ROAD_W / 2 - 0.9, PH / 2 - 0.4, z);
-    meshL.rotation.y = 0.20;
-    scene.add(meshL);
-    barrierL.push(meshL);
+      // X: vary how close to road edge (some lean in, some far out)
+      const xBase  = (ROAD_W / 2 + rnd(0.3, 1.8)) * side;
+      const yOff   = rnd(-0.4, 1.2);   // float at different heights
+      const zOff   = rnd(-0.8, 0.8);   // stagger along Z
+      m.position.set(xBase, ph / 2 + yOff, z + zOff);
 
-    const meshR = new THREE.Mesh(geo.clone(), mR);
-    meshR.position.set(ROAD_W / 2 + 0.9, PH / 2 - 0.4, z);
-    meshR.rotation.y = -0.20;
-    scene.add(meshR);
-    barrierR.push(meshR);
+      // Random angle: each panel faces a bit differently
+      const tiltY = (rnd(0.05, 0.45)) * side;  // yaw toward road
+      const tiltZ = rnd(-0.25, 0.25);           // slight roll
+      m.rotation.set(0, tiltY, tiltZ);
+
+      scene.add(m);
+      return m;
+    };
+
+    barrierL.push(makePanel(-1));
+    barrierR.push(makePanel( 1));
   }
 }
 
 // ── Road dashes ───────────────────────────────────
 function buildDashes() {
   const mat = new THREE.MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.10,
+    color: 0xffffff, transparent: true, opacity: 0.18,
   });
-  const geo = new THREE.BoxGeometry(0.065, 0.003, 1.1);
+  const geo = new THREE.BoxGeometry(0.06, 0.003, 1.0);
   const n   = SEG_N + 4;
   for (let i = 0; i < n; i++) {
     const m = new THREE.Mesh(geo, mat.clone());
-    m.position.set(0, 0.001, -i * (SEG_GAP - 1.6));
+    m.position.set(0, 0.001, -i * (SEG_GAP - 1.5));
     scene.add(m);
     dashMeshes.push(m);
   }
 }
 
-// ── Character particle sparks ─────────────────────
+// ── Char particles ────────────────────────────────
 function resetSpark(p) {
-  const z0 = rnd(-44, -6);
-  const spread = (44 + z0) / 44; // 0 at near, 1 at far
-  p.sp.position.set(
-    rnd(-2.0, 2.0) * (1 - spread * 0.7),
-    rnd(-0.4, 1.0) * (1 - spread * 0.5),
-    z0,
-  );
-  p.vx = rnd(-0.020, 0.020);
-  p.vy = rnd(-0.005, 0.012);
-  p.vz = rnd(0.055, 0.17);
-  p.sp.material.opacity = rnd(0.45, 0.95);
+  const z0 = rnd(-50, -8);
+  p.sp.position.set(rnd(-1.0, 1.0), rnd(-0.2, 0.8), z0);
+  p.vx = rnd(-0.022, 0.022);
+  p.vy = rnd(-0.005, 0.014);
+  p.vz = rnd(0.06, 0.20);
+  p.sp.material.opacity = rnd(0.5, 1.0);
   const ch = CHAR_SET[Math.floor(Math.random() * CHAR_SET.length)];
   p.sp.material.map = getCharTex(ch);
   p.sp.material.needsUpdate = true;
-  p.sp.scale.setScalar(rnd(0.06, 0.24));
+  p.sp.scale.setScalar(rnd(0.08, 0.28));
 }
 
 function buildSparks() {
@@ -272,31 +281,31 @@ function buildScene() {
   renderer.setSize(W, H);
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x030206);
-  scene.fog = new THREE.FogExp2(0x030206, 0.018);
+  scene.background = new THREE.Color(0x020104);
+  // Light fog — starts far away so near objects are fully visible
+  scene.fog = new THREE.Fog(0x020104, 60, 130);
 
-  camera = new THREE.PerspectiveCamera(56, W / H, 0.1, 180);
+  camera = new THREE.PerspectiveCamera(58, W / H, 0.1, 200);
   camera.position.set(0, 2.2, 5.5);
-  camera.lookAt(0, 0.4, -80);
 
   // Road floor
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(ROAD_W, 240),
-    new THREE.MeshBasicMaterial({ color: 0x040307 }),
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, -0.005, -90);
-  scene.add(floor);
+  scene.add(Object.assign(
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(ROAD_W, 280),
+      new THREE.MeshBasicMaterial({ color: 0x030106 }),
+    ),
+    { rotation: { x: -Math.PI / 2, y: 0, z: 0 }, position: { x: 0, y: -0.006, z: -100 } },
+  ));
 
   // Road edge lines
   const edgeMat = new THREE.LineBasicMaterial({
-    color: ACCENT, transparent: true, opacity: 0.25,
+    color: ACCENT, transparent: true, opacity: 0.40,
     blending: THREE.AdditiveBlending,
   });
-  [-ROAD_W / 2, ROAD_W / 2].forEach(x => {
-    const pts = [new THREE.Vector3(x, 0, -180), new THREE.Vector3(x, 0, 8)];
+  for (const x of [-ROAD_W / 2, ROAD_W / 2]) {
+    const pts = [new THREE.Vector3(x, 0, -200), new THREE.Vector3(x, 0, 8)];
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), edgeMat.clone()));
-  });
+  }
 
   composer  = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
@@ -310,7 +319,6 @@ function buildScene() {
 
   window.addEventListener('mousemove', onMouse);
   window.addEventListener('resize',    onResize);
-
   sceneReady = true;
 }
 
@@ -326,7 +334,8 @@ function teardown() {
 
 // ── Input ─────────────────────────────────────────
 function onMouse(e) {
-  mouseXT = (e.clientX / window.innerWidth) * 2 - 1;
+  mouseXT = (e.clientX / window.innerWidth)  * 2 - 1;  // -1 left … +1 right
+  mouseYT = -((e.clientY / window.innerHeight) * 2 - 1); // -1 bottom … +1 top
 }
 function onResize() {
   if (!renderer) return;
@@ -342,44 +351,49 @@ function animate() {
   rafId = requestAnimationFrame(animate);
   if (!active || !renderer) return;
 
+  // Smooth mouse — same lazy-follow as the mask
   mouseXS = lerp(mouseXS, mouseXT, 0.055);
-  shakePhase += 0.16;
+  mouseYS = lerp(mouseYS, mouseYT, 0.055);
 
-  // Camera: lean + road shake
-  const shX = Math.sin(shakePhase * 1.4) * 0.0035 + Math.sin(shakePhase * 2.3) * 0.0018;
-  const shY = Math.cos(shakePhase * 0.8) * 0.0025;
-  camera.position.x  = mouseXS * 0.38 + shX;
-  camera.position.y  = 2.2 + shY;
-  camera.rotation.z  = -mouseXS * 0.065;
+  shakePhase += 0.15;
+  const shX = Math.sin(shakePhase * 1.4) * 0.003 + Math.sin(shakePhase * 2.3) * 0.0015;
+  const shY = Math.cos(shakePhase * 0.8) * 0.002;
 
-  // Car: opposite lean
+  // Camera: gaze follows mouse — like mask tracking
+  // Mouse right → camera looks right → feels like turning right
+  const lookX = mouseXS * 3.5 + shX * 8;
+  const lookY = 0.5 + mouseYS * 0.4 + shY * 5;
+  camera.position.x = shX;
+  camera.position.y = 2.2 + shY;
+  camera.lookAt(lookX, lookY, -60);
+
+  // Car: lean into the turn (opposite Z) + subtle bob
   if (carGroup) {
-    carGroup.rotation.z = mouseXS * 0.042;
-    carGroup.rotation.x = Math.sin(shakePhase * 0.65) * 0.007;
-    carGroup.position.x = mouseXS * 0.10;
+    carGroup.rotation.z = -mouseXS * 0.055;
+    carGroup.rotation.x =  Math.sin(shakePhase * 0.65) * 0.007;
+    carGroup.position.x =  mouseXS * 0.12;
   }
 
-  // Scroll barriers toward camera
-  const totalL = SEG_N * SEG_GAP;
-  barrierL.forEach(m => { m.position.z += SPEED; if (m.position.z > 7) m.position.z -= totalL; });
-  barrierR.forEach(m => { m.position.z += SPEED; if (m.position.z > 7) m.position.z -= totalL; });
+  // Scroll barriers
+  const totalLen = SEG_N * SEG_GAP;
+  barrierL.forEach(m => { m.position.z += SPEED; if (m.position.z > 8) m.position.z -= totalLen; });
+  barrierR.forEach(m => { m.position.z += SPEED; if (m.position.z > 8) m.position.z -= totalLen; });
 
-  // Scroll center dashes
-  const dashTotal = (SEG_N + 4) * (SEG_GAP - 1.6);
-  dashMeshes.forEach(m => { m.position.z += SPEED; if (m.position.z > 7) m.position.z -= dashTotal; });
+  // Scroll dashes
+  const dashTotal = (SEG_N + 4) * (SEG_GAP - 1.5);
+  dashMeshes.forEach(m => { m.position.z += SPEED; if (m.position.z > 8) m.position.z -= dashTotal; });
 
-  // Animate char sparks — fly from vanishing point toward camera, spread outward
+  // Char sparks — spread outward as they approach camera
   sparks.forEach(p => {
-    const fwd  = Math.max(0, (p.sp.position.z + 44) / 44); // 0=far 1=near
-    p.sp.position.x += p.vx * (1 + fwd * 4);
+    const fwd = Math.max(0, (p.sp.position.z + 50) / 50);
+    p.sp.position.x += p.vx * (1 + fwd * 5);
     p.sp.position.y += p.vy;
-    p.sp.position.z += p.vz * (1 + fwd * 1.5);
-    p.sp.material.opacity -= 0.0045;
+    p.sp.position.z += p.vz * (1 + fwd);
+    p.sp.material.opacity -= 0.004;
     if (p.sp.position.z > 5 || p.sp.material.opacity <= 0) resetSpark(p);
   });
 
-  // Speed blur always-on (driving feel)
-  speedPass.uniforms.speed.value = 0.58;
+  speedPass.uniforms.speed.value = 0.42;
 
   composer.render();
 }
