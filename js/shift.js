@@ -16,7 +16,7 @@ import { registerExitHandler }    from './overlays.js?v=28';
 const ROAD_W    = 9.0;
 const SEG_N     = 28;
 const SEG_STEP  = 4.2;
-const SPEED     = 0.12;
+const SPEED     = 0.24;   // 2× faster
 const SPARK_N   = 120;
 
 // ── Radial speed-blur (edges only, subtle) ────────
@@ -66,30 +66,45 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // ── Load car ──────────────────────────────────────
 function loadCar() {
   return new Promise((resolve) => {
+
+    // Bright debug box so we can confirm camera framing before car loads
+    const dbg = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 0.9, 3.8),
+      new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true }),
+    );
+    dbg.position.set(0, 0.45, 0);
+    scene.add(dbg);
+
     new GLTFLoader().load('/assets/car.glb', (gltf) => {
+      scene.remove(dbg); // remove debug box once real car loads
+
       carGroup = new THREE.Group();
 
-      // Fit model into bounding box, center it
+      // Center + scale the loaded model
       const box    = new THREE.Box3().setFromObject(gltf.scene);
       const size   = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
-      gltf.scene.position.sub(center);
       const maxDim = Math.max(size.x, size.y, size.z);
-      gltf.scene.scale.setScalar(3.2 / maxDim);   // fit to ~3.2 world units
+      const s      = 3.8 / maxDim;
 
-      // Keep original materials — they look great as-is
-      // Just ensure they're visible (no override)
+      gltf.scene.scale.setScalar(s);
+      // Offset so bottom of car sits on y=0
+      gltf.scene.position.set(
+        -center.x * s,
+        -box.min.y * s,
+        -center.z * s,
+      );
 
       carGroup.add(gltf.scene);
-
-      // Position: rear of car fills lower-centre of frame
-      // Model is centred at origin after sub(center), nose points –Z by convention.
-      // Rotate 180° so rear faces camera (camera is at +Z).
+      // Rotate so rear faces camera (+Z)
       carGroup.rotation.y = Math.PI;
-      carGroup.position.set(0, -0.55, 0.0);
+      carGroup.position.set(0, -0.08, 0.4);
       scene.add(carGroup);
       resolve();
-    }, undefined, () => resolve()); // silently ignore load error
+    }, undefined, (err) => {
+      console.warn('[SHIFT] car.glb load error', err);
+      resolve();
+    });
   });
 }
 
@@ -273,13 +288,13 @@ function animate() {
   const camX = mouseXS * 0.25 + shX;
   const camY = 2.0 + mouseYS * 0.12 + shY;
   camera.position.set(camX, camY, 5.8);
-  camera.lookAt(mouseXS * 5.0, 0.5 + mouseYS * 0.5, -60);
+  camera.lookAt(mouseXS * 15.0, 0.5 + mouseYS * 0.5, -60);  // 3× more range
 
-  // Car: front follows mouse direction — main "steering" feel
+  // Car: front follows mouse — strong steering feel
   if (carGroup) {
-    carGroup.rotation.y = lerp(carGroup.rotation.y, Math.PI + mouseXS * 0.18, 0.08);
-    carGroup.rotation.z = lerp(carGroup.rotation.z, -mouseXS * 0.06,           0.08);
-    carGroup.position.x = lerp(carGroup.position.x,  mouseXS * 0.50,           0.06);
+    carGroup.rotation.y = lerp(carGroup.rotation.y, Math.PI + mouseXS * 0.45, 0.10);
+    carGroup.rotation.z = lerp(carGroup.rotation.z, -mouseXS * 0.12,           0.10);
+    carGroup.position.x = lerp(carGroup.position.x,  mouseXS * 1.20,           0.08);
     carGroup.position.y = -0.55 + Math.sin(tick * 1.2) * 0.018;
   }
 
