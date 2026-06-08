@@ -18,7 +18,7 @@ import { initScrollEffects } from './scroll-effects.js?v=36';
 import { initFx } from './fx-switcher.js?v=33';
 import { initSkillsPreview } from './skills-preview.js?v=7';
 import { initContactPopup } from './contact-popup.js?v=2';
-import { initSweep, showSweep, hideSweep } from './minesweeper.js?v=5';
+import { initSweep, showSweep, hideSweep } from './minesweeper.js?v=6';
 import { initPlayground, showPlayground, hidePlayground, dismissPlayground } from './playground.js?v=62';
 
 const splashEl = document.getElementById('splash');

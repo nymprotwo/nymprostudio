@@ -16,6 +16,9 @@ const NUM_COL = ['','#00d4ff','#00ff88','#ff4466','#bb88ff','#ff8822','#00ffdd',
 // Scale ripple
 const S0 = 1.18, S1 = 1.09, S2 = 1.03; // dist 0,1,2
 
+// Matrix rain character set
+const CHAR_SET = '01NYM</>{}#!SHIFT|[]10';
+
 // Electricity crawlers
 const CRAWLER_N    = 14;   // simultaneous arcs
 const CRAWLER_LIFE = 120;  // frames per arc
