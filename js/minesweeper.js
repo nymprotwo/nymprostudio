@@ -75,23 +75,21 @@ function initRain() {
 }
 
 function drawRain() {
+  if (!rainDrops.length) return;
   const CH = 13, FS = 12;
+  ctx.save();
   ctx.font = `${FS}px monospace`;
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'alphabetic';
   rainDrops.forEach(d => {
     d.tick++;
-    if (d.tick % 4 === 0) {  // randomise lead char occasionally
-      d.chars[0] = CHAR_SET[Math.floor(Math.random()*CHAR_SET.length)];
-    }
+    if (d.tick % 4 === 0) d.chars[0] = CHAR_SET[Math.floor(Math.random()*CHAR_SET.length)];
     for (let i = 0; i < d.len; i++) {
       const cy2 = d.y - i * FS;
       if (cy2 < -FS || cy2 > canvas.height) continue;
       const fade  = 1 - i / d.len;
-      const alpha = fade * (i === 0 ? 0.70 : 0.18);
-      ctx.fillStyle = i === 0
-        ? `rgba(180,240,255,${alpha})`
-        : `rgba(30,159,226,${alpha})`;
+      const alpha = fade * (i === 0 ? 0.65 : 0.16);
+      ctx.fillStyle = i === 0 ? `rgba(180,240,255,${alpha})` : `rgba(30,159,226,${alpha})`;
       ctx.fillText(d.chars[i % d.chars.length], d.x, cy2);
     }
     d.y += d.speed;
@@ -100,6 +98,7 @@ function drawRain() {
       d.chars = Array.from({length:28}, () => CHAR_SET[Math.floor(Math.random()*CHAR_SET.length)]);
     }
   });
+  ctx.restore();
 }
 
 function newGame() {
