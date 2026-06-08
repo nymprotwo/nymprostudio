@@ -1626,24 +1626,39 @@ body[data-page="playground"] .cpop {
 
 /* ── Thumbnails right column ───────────────────── */
 .proj-thumbs {
-  width: 150px;
+  width: 140px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  margin: 0 3vw;
-  align-self: center;
-  height: 75vh;
+  padding: 3px 0;
+  margin-right: 3vw;
+  align-self: stretch;   /* fill full height of list-view */
+}
+.proj-thumb-wrap {
+  flex: 1;               /* each slot = viewport_height / N */
+  overflow: hidden;
+  border-radius: 2px;
+  min-height: 0;
 }
 .proj-thumb {
-  flex: 1;
+  width: 100%;
+  height: 100%;
   border-radius: 2px;
-  opacity: 0.15;
-  transition: opacity 0.4s ease, flex 0.4s cubic-bezier(0.4,0,0.2,1);
+  /* B&W by default */
+  filter: grayscale(1) brightness(0.45);
+  transition: filter 0.4s ease, opacity 0.4s ease;
+  opacity: 0.6;
 }
+/* scroll-tracked: slightly brighter B&W */
 .proj-thumb.is-active {
-  flex: 4;
-  opacity: 0.9;
+  filter: grayscale(1) brightness(0.75);
+  opacity: 0.85;
+}
+/* hover: full color */
+.proj-thumb.is-colored {
+  filter: grayscale(0) brightness(1);
+  opacity: 1;
 }
 
 /* ── Detail view ───────────────────────────────── */
