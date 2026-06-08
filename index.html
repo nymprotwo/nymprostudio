@@ -17,9 +17,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="/css/main.css?v=64">
+<link rel="stylesheet" href="/css/main.css?v=65">
 
 <!-- Lenis smooth scroll (loaded eagerly so init can find it) -->
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.0.42/dist/lenis.min.js"></script>
@@ -52,14 +52,13 @@
 <header class="header">
   <nav class="header__nav header__nav--left">
     <button class="header__nav-btn" data-page="about">ABOUT</button>
-    <button class="header__nav-btn" data-overlay="works">WORKS</button>
+    <button class="header__nav-btn" id="projects-toggle">PROJECTS</button>
   </nav>
   <button class="header__logo" id="home-btn" type="button" aria-label="Return to home" data-home>
     <span>NYM</span><em></em>
   </button>
   <nav class="header__nav header__nav--right">
     <button class="header__nav-btn" id="playground-toggle">PLAYGROUND</button>
-    <button class="header__nav-btn" id="sweep-toggle">SWEEP</button>
     <div class="cpop-wrap">
       <button class="header__nav-btn" id="contact-toggle" aria-expanded="false">CONTACT</button>
       <div class="cpop" id="contact-popup" hidden>
@@ -185,31 +184,10 @@
 
 <!-- ─────────── OVERLAYS (works + contact — to refactor later) ─────────── -->
 
-<!-- Works overlay -->
-<div class="overlay" id="overlay-works" data-overlay-panel="works">
-  <button class="overlay__close" data-close-overlay aria-label="Close">×</button>
-  <div class="overlay__inner">
-    <div class="overlay__tag">&gt; SELECTED WORKS</div>
-    <h2 class="overlay__title">A few things I made.</h2>
-    <div class="works">
-      <a class="work" href="#" data-num="01">
-        <div class="work__media"></div>
-        <div class="work__meta"><span class="work__title">Project Title</span><span class="work__type">WEB · 2026</span></div>
-      </a>
-      <a class="work" href="#" data-num="02">
-        <div class="work__media"></div>
-        <div class="work__meta"><span class="work__title">Another Project</span><span class="work__type">BRAND · 2026</span></div>
-      </a>
-      <a class="work" href="#" data-num="03">
-        <div class="work__media"></div>
-        <div class="work__meta"><span class="work__title">Yet Another</span><span class="work__type">3D · 2025</span></div>
-      </a>
-      <a class="work" href="#" data-num="04">
-        <div class="work__media"></div>
-        <div class="work__meta"><span class="work__title">Fourth Thing</span><span class="work__type">LANDING · 2025</span></div>
-      </a>
-    </div>
-  </div>
+<!-- Projects page (yutaabe style) -->
+<div id="page-projects" style="display:none">
+  <div class="proj-list-view"></div>
+  <div class="proj-detail-view"></div>
 </div>
 
 <!-- Contact overlay REMOVED — replaced with inline popup in header -->

@@ -1538,3 +1538,221 @@ body[data-page="playground"] .cpop {
 }
 #page-sweep .pg-close span:nth-child(1) { transform: translateY(-50%) rotate(45deg); }
 #page-sweep .pg-close span:nth-child(2) { transform: translateY(-50%) rotate(-45deg); }
+
+/* ═══════════════════════════════════════════════════
+   PROJECTS PAGE — yutaabe style
+   ═══════════════════════════════════════════════════ */
+
+#page-projects {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  background: #000;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+#page-projects.is-visible { opacity: 1; }
+
+/* ── List view ─────────────────────────────────── */
+.proj-list-view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.proj-list-view.is-hidden {
+  opacity: 0;
+  transform: translateX(-40px);
+  pointer-events: none;
+}
+
+.proj-list {
+  list-style: none;
+  padding: 6vh 0 6vh 5vw;
+  flex: 1;
+  min-width: 0;
+}
+
+.proj-item {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5vw;
+  padding: 0.2em 0;
+  cursor: pointer;
+  position: relative;
+  transition: opacity 0.3s ease;
+}
+.proj-item.is-dimmed { opacity: 0.12; }
+
+.proj-num {
+  font: 400 11px/1 'Space Mono', monospace;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.05em;
+  min-width: 2.5ch;
+  transition: color 0.3s;
+  flex-shrink: 0;
+  position: relative;
+  top: -0.1em;
+}
+.proj-item.is-hovered .proj-num { color: rgba(255,255,255,0.7); }
+
+.proj-name {
+  font: 800 12vw/0.88 'Barlow Condensed', 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  color: rgba(255,255,255,0.14);
+  background-image: var(--pg);
+  background-size: cover;
+  background-position: center;
+  -webkit-background-clip: text;
+  background-clip: text;
+  transition: color 0.35s ease;
+  white-space: nowrap;
+  line-height: 0.92;
+}
+.proj-item.is-hovered .proj-name {
+  color: transparent; /* reveals gradient through text */
+}
+
+.proj-tags {
+  display: none;
+}
+
+/* ── Thumbnails right column ───────────────────── */
+.proj-thumbs {
+  width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-right: 3vw;
+  height: 80vh;
+  overflow: hidden;
+  align-self: center;
+}
+.proj-thumb {
+  flex: 1;
+  border-radius: 2px;
+  opacity: 0.2;
+  transition: opacity 0.35s ease, flex 0.35s ease;
+}
+.proj-thumb.is-active {
+  flex: 3;
+  opacity: 1;
+}
+
+/* ── Detail view ───────────────────────────────── */
+.proj-detail-view {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.proj-detail-view.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.proj-back {
+  position: fixed;
+  top: 1.6rem;
+  left: 2rem;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.45);
+  font: 400 11px/1 'Space Mono', monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  z-index: 10;
+  transition: color 0.2s;
+}
+.proj-back:hover { color: #fff; }
+
+.proj-detail-hero {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 6vw;
+  position: relative;
+}
+
+.proj-detail-title {
+  font: 900 16vw/0.88 'Barlow Condensed', 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  color: #f0ece3;
+  margin: 0;
+}
+
+.proj-detail-meta {
+  position: absolute;
+  bottom: 3rem;
+  right: 3rem;
+  text-align: right;
+}
+.proj-detail-year {
+  display: block;
+  font: 400 11px/1.4 'Space Mono', monospace;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 0.4em;
+}
+.proj-detail-tags {
+  display: block;
+  font: 700 12px/1 'Space Mono', monospace;
+  color: var(--accent);
+  letter-spacing: 0.06em;
+}
+
+.proj-scroll-hint {
+  position: absolute;
+  bottom: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255,255,255,0.3);
+  font: 400 10px/1 'Space Mono', monospace;
+  letter-spacing: 0.12em;
+}
+.proj-scroll-line {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.3), transparent);
+  animation: scrollPulse 1.5s ease-in-out infinite;
+}
+@keyframes scrollPulse {
+  0%,100% { opacity: 0.3; }
+  50%      { opacity: 0.9; }
+}
+
+/* ── Tile reveal canvases ──────────────────────── */
+.proj-detail-content {
+  padding: 5vw 6vw 15vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3vw;
+}
+
+.proj-tile-wrap {
+  aspect-ratio: 16/10;
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.proj-tile-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}

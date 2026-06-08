@@ -20,6 +20,7 @@ import { initSkillsPreview } from './skills-preview.js?v=7';
 import { initContactPopup } from './contact-popup.js?v=2';
 import { initSweep, showSweep, hideSweep } from './minesweeper.js?v=6';
 import { initPlayground, showPlayground, hidePlayground, dismissPlayground } from './playground.js?v=62';
+import { initProjects, showProjects, hideProjects } from './projects.js?v=1';
 
 const splashEl = document.getElementById('splash');
 const barEl = document.getElementById('splash-bar');
@@ -42,6 +43,7 @@ initContactPopup();
 initSweep();
 startClock();
 initPlayground();
+initProjects();
 // When logo is clicked: if playground is active, animate tiles out then reveal mask
 registerExitHandler(() => {
   if (document.body.dataset.page === 'playground') {
@@ -54,11 +56,11 @@ registerExitHandler(() => {
 
 // Playground toggle
 document.getElementById('playground-toggle')?.addEventListener('click', showPlayground);
+document.getElementById('projects-toggle')?.addEventListener('click', showProjects);
 document.getElementById('shift-toggle')?.addEventListener('click', showSweep);
 document.getElementById('sh-close')?.addEventListener('click', hideShift);
 document.getElementById('pg-close')?.addEventListener('click', hidePlayground);
-document.getElementById('sweep-toggle')?.addEventListener('click', showSweep);
-document.getElementById('sweep-close')?.addEventListener('click', hideSweep); // start clock immediately — it doesn't need to wait for scene
+document.getElementById('sweep-close')?.addEventListener('click', hideSweep);
 
 const splashPromise = runSplash();
 const scenePromise = initScene({
