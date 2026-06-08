@@ -34,6 +34,9 @@ let particles = [];
 let flashCells= [];
 let crawlers  = [];   // electric arcs
 
+// Matrix rain
+let rainDrops = [];
+
 // Entrance animation
 let introT    = 0;    // 0→1 over ~80 frames
 let introDone = false;
@@ -58,6 +61,47 @@ function neighbours(i) {
 }
 
 // ── Init ────────────────────────────────────────────
+function initRain() {
+  const CH = 13; // char width in px
+  const n  = Math.ceil(canvas.width / CH) + 2;
+  rainDrops = Array.from({length: n}, (_, i) => ({
+    x:     i * CH,
+    y:     Math.random() * canvas.height,
+    speed: 1.2 + Math.random() * 2.8,
+    len:   10 + Math.floor(Math.random() * 16),
+    chars: Array.from({length: 28}, () => CHAR_SET[Math.floor(Math.random()*CHAR_SET.length)]),
+    tick:  0,
+  }));
+}
+
+function drawRain() {
+  const CH = 13, FS = 12;
+  ctx.font = `${FS}px monospace`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  rainDrops.forEach(d => {
+    d.tick++;
+    if (d.tick % 4 === 0) {  // randomise lead char occasionally
+      d.chars[0] = CHAR_SET[Math.floor(Math.random()*CHAR_SET.length)];
+    }
+    for (let i = 0; i < d.len; i++) {
+      const cy2 = d.y - i * FS;
+      if (cy2 < -FS || cy2 > canvas.height) continue;
+      const fade  = 1 - i / d.len;
+      const alpha = fade * (i === 0 ? 0.70 : 0.18);
+      ctx.fillStyle = i === 0
+        ? `rgba(180,240,255,${alpha})`
+        : `rgba(30,159,226,${alpha})`;
+      ctx.fillText(d.chars[i % d.chars.length], d.x, cy2);
+    }
+    d.y += d.speed;
+    if (d.y - d.len * FS > canvas.height) {
+      d.y = -Math.random() * 120;
+      d.chars = Array.from({length:28}, () => CHAR_SET[Math.floor(Math.random()*CHAR_SET.length)]);
+    }
+  });
+}
+
 function newGame() {
   cols  = Math.max(10, Math.floor(canvas.width  / CELL));
   rows  = Math.max(8,  Math.floor(canvas.height / CELL));
@@ -68,9 +112,8 @@ function newGame() {
   cellScaleT = new Float32Array(total).fill(1);
   state = 'playing'; firstClick=true; revealed=0; flagged=0;
   particles=[]; flashCells=[]; crawlers=[];
-  // Start entrance
   introT=0; introDone=false;
-  // Seed initial crawlers
+  initRain();
   for(let k=0;k<CRAWLER_N;k++) spawnCrawler(Math.random()*CRAWLER_LIFE|0);
 }
 
@@ -196,10 +239,12 @@ function updateScales(){
     }
   }
 
-  // Lerp toward target
+  // Rise fast, fall slow — creates the mouse trail / gravity effect
   for(let i=0;i<total;i++){
-    const spd = cellScaleT[i]>cellScale[i] ? 0.18 : 0.10;
+    const rising = cellScaleT[i] > cellScale[i];
+    const spd    = rising ? 0.20 : 0.016; // fall 12× slower than rise
     cellScale[i] += (cellScaleT[i]-cellScale[i])*spd;
+    if(Math.abs(cellScale[i]-cellScaleT[i])<0.001) cellScale[i]=cellScaleT[i];
   }
 }
 
@@ -208,6 +253,9 @@ function draw(){
   const W=canvas.width, H=canvas.height;
   ctx.fillStyle='#010205';
   ctx.fillRect(0,0,W,H);
+
+  // Matrix rain — drawn before cells so it shows through open areas
+  drawRain();
 
   // Update state
   if(!introDone){ introT=Math.min(1,introT+0.013); if(introT>=1) introDone=true; }
