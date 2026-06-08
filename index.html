@@ -59,6 +59,7 @@
   </button>
   <nav class="header__nav header__nav--right">
     <button class="header__nav-btn" id="playground-toggle">PLAYGROUND</button>
+    <button class="header__nav-btn" id="sweep-toggle">SWEEP</button>
     <div class="cpop-wrap">
       <button class="header__nav-btn" id="contact-toggle" aria-expanded="false">CONTACT</button>
       <div class="cpop" id="contact-popup" hidden>
@@ -371,6 +372,14 @@
   </button>
 </div>
 
-<script type="module" src="/js/main.js?v=126"></script>
+<!-- ── Sweep / Minesweeper page ───────────────── -->
+<div id="page-sweep" style="display:none">
+  <canvas id="sweep-canvas"></canvas>
+  <button class="pg-close" id="sweep-close" aria-label="Exit sweep">
+    <span></span><span></span>
+  </button>
+</div>
+
+<script type="module" src="/js/main.js?v=127"></script>
 </body>
 </html>

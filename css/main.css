@@ -1491,3 +1491,50 @@ body[data-page="playground"] .cpop {
   transition: opacity 0.6s 0.8s ease;
 }
 #page-playground.is-visible .pg-hint { opacity: 1; }
+
+/* ── Sweep / Minesweeper page ──────────────────── */
+#page-sweep {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: #010205;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  cursor: default;
+}
+#page-sweep.is-visible { opacity: 1; }
+#sweep-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#page-sweep .pg-close {
+  position: fixed;
+  top: 50%;
+  right: 2rem;
+  transform: translateY(-50%);
+  z-index: 920;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.4s 0.3s ease;
+}
+#page-sweep.is-visible .pg-close { opacity: 0.5; }
+#page-sweep .pg-close:hover { opacity: 1 !important; }
+#page-sweep .pg-close span {
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: 1px;
+  background: var(--text);
+  top: 50%;
+  left: 0;
+}
+#page-sweep .pg-close span:nth-child(1) { transform: translateY(-50%) rotate(45deg); }
+#page-sweep .pg-close span:nth-child(2) { transform: translateY(-50%) rotate(-45deg); }

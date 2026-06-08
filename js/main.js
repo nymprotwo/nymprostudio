@@ -18,6 +18,7 @@ import { initScrollEffects } from './scroll-effects.js?v=36';
 import { initFx } from './fx-switcher.js?v=33';
 import { initSkillsPreview } from './skills-preview.js?v=7';
 import { initContactPopup } from './contact-popup.js?v=2';
+import { initSweep, showSweep, hideSweep } from './minesweeper.js?v=1';
 import { initPlayground, showPlayground, hidePlayground, dismissPlayground } from './playground.js?v=62';
 
 const splashEl = document.getElementById('splash');
@@ -38,6 +39,7 @@ initScrollEffects();
 initFx(); // pick up ?fx=... from URL and kick off the chosen effect
 initSkillsPreview();
 initContactPopup();
+initSweep();
 startClock();
 initPlayground();
 // When logo is clicked: if playground is active, animate tiles out then reveal mask
@@ -54,7 +56,9 @@ registerExitHandler(() => {
 document.getElementById('playground-toggle')?.addEventListener('click', showPlayground);
 document.getElementById('shift-toggle')?.addEventListener('click', showShift);
 document.getElementById('sh-close')?.addEventListener('click', hideShift);
-document.getElementById('pg-close')?.addEventListener('click', hidePlayground); // start clock immediately — it doesn't need to wait for scene
+document.getElementById('pg-close')?.addEventListener('click', hidePlayground);
+document.getElementById('sweep-toggle')?.addEventListener('click', showSweep);
+document.getElementById('sweep-close')?.addEventListener('click', hideSweep); // start clock immediately — it doesn't need to wait for scene
 
 const splashPromise = runSplash();
 const scenePromise = initScene({
