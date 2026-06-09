@@ -1570,6 +1570,9 @@ body[data-page="playground"] .cpop {
 }
 .proj-portal.is-visible { opacity: 1; }
 
+/* Hide original text while portal is active — keep bar + num */
+.proj-item.portal-active .proj-name { opacity: 0; }
+
 #page-projects {
   position: fixed;
   inset: 0;

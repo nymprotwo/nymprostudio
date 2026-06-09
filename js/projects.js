@@ -180,6 +180,7 @@ function applyDrum() {
   });
 
   if (hoveredIdx < 0) setActiveThumb(centeredIdx, false);
+  updatePortalPos();
 }
 
 // ── Portal — active title floats above the mask canvas ──
@@ -192,19 +193,32 @@ function ensurePortal() {
 function showPortal(idx) {
   ensurePortal();
   const p = PROJECTS[idx];
-  // Find the source item to match its position
+  portalEl.textContent = p.title;
+  portalEl.dataset.idx = idx;
+  portalEl.classList.add('is-visible');
+  updatePortalPos();
+  // Hide the source item's text so it doesn't double-render
+  const srcEl = listEl?.querySelector(`.proj-item[data-idx="${idx}"]`);
+  if (srcEl) srcEl.classList.add('portal-active');
+}
+function hidePortal() {
+  if (!portalEl) return;
+  portalEl.classList.remove('is-visible');
+  // Restore source item text
+  listEl?.querySelectorAll('.proj-item.portal-active')
+    .forEach(el => el.classList.remove('portal-active'));
+}
+function updatePortalPos() {
+  if (!portalEl?.classList.contains('is-visible')) return;
+  const idx = parseInt(portalEl.dataset.idx);
+  if (isNaN(idx)) return;
   const srcEl = listEl?.querySelector(`.proj-item[data-idx="${idx}"]`);
   if (!srcEl) return;
   const rect = srcEl.getBoundingClientRect();
-  portalEl.textContent = p.title;
-  portalEl.style.top    = rect.top  + 'px';
-  portalEl.style.left   = rect.left + 'px';
-  portalEl.style.width  = rect.width + 'px';
+  portalEl.style.top    = rect.top    + 'px';
+  portalEl.style.left   = rect.left   + 'px';
+  portalEl.style.width  = rect.width  + 'px';
   portalEl.style.height = rect.height + 'px';
-  portalEl.classList.add('is-visible');
-}
-function hidePortal() {
-  portalEl?.classList.remove('is-visible');
 }
 
 // ── Hover ─────────────────────────────────────────────
