@@ -914,8 +914,6 @@ body.is-page-open .page__year { opacity: 1; transform: translateY(0); }
   font-family: var(--font-mono);
   font-size: 0.95rem;
   border-top: 1px solid var(--brd);
-  position: relative;
-  z-index: 2;
 }
 .skills li {
   display: flex;
@@ -923,9 +921,6 @@ body.is-page-open .page__year { opacity: 1; transform: translateY(0); }
   padding: 0.55rem 0;
   border-bottom: 1px solid var(--brd);
   transition: padding 0.3s ease, color 0.3s ease;
-  position: relative;
-  z-index: 2;
-  background: transparent;
 }
 .skills li:hover { padding-left: 0.5rem; color: var(--accent); }
 .skills li span { color: var(--text-mute); min-width: 2.5em; }
@@ -947,7 +942,7 @@ body.is-page-open .page__year { opacity: 1; transform: translateY(0); }
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
-  z-index: 1;
+  z-index: 200;
   transition: opacity 0.18s ease;
   will-change: transform;
   box-shadow: 0 0 24px rgba(30,159,226,0.12), 0 8px 32px rgba(0,0,0,0.6);
