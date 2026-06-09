@@ -260,6 +260,7 @@ function setActiveThumb(idx, colored) {
 // ── Detail view ───────────────────────────────────────
 function openDetail(i) {
   const p = PROJECTS[i];
+  document.body.dataset.page = 'projects-detail'; // no mask on detail
   detailView.innerHTML = `
     <button class="proj-back" id="proj-back">← BACK</button>
     <div class="proj-detail-hero">
@@ -293,6 +294,7 @@ function closeDetail() {
   detailView.classList.remove('is-visible');
   listView.classList.remove('is-hidden');
   if (tileRaf) { cancelAnimationFrame(tileRaf); tileRaf = null; }
+  document.body.dataset.page = 'projects'; // restore mask
 }
 
 // ── Public API ────────────────────────────────────────
@@ -315,11 +317,16 @@ export function showProjects() {
 
 export function hideProjects() {
   if (!pg) return;
+  // Always reset detail → list so next open starts fresh
+  if (detailView?.classList.contains('is-visible')) {
+    detailView.classList.remove('is-visible');
+    listView?.classList.remove('is-hidden');
+    if (tileRaf) { cancelAnimationFrame(tileRaf); tileRaf = null; }
+  }
   pg.classList.remove('is-visible');
   setTimeout(() => { pg.style.display = 'none'; }, 500);
   if (drumRaf) { cancelAnimationFrame(drumRaf); drumRaf = null; }
-  if (tileRaf) { cancelAnimationFrame(tileRaf); tileRaf = null; }
-  if (document.body.dataset.page === 'projects') delete document.body.dataset.page;
+  delete document.body.dataset.page;
   hidePortal();
   resumeLenis();
 }
