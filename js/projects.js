@@ -26,6 +26,7 @@ let listEl     = null;   // <ul> with exactly N <li> items
 let scrollWrap = null;   // the overflow:hidden container
 let thumbEls   = [];
 let tileRaf    = null;
+let portalEl   = null;   // floats above the mask canvas
 
 // Drum scroll state
 let itemH       = 0;     // px height of one item
@@ -181,19 +182,45 @@ function applyDrum() {
   if (hoveredIdx < 0) setActiveThumb(centeredIdx, false);
 }
 
+// ── Portal — active title floats above the mask canvas ──
+function ensurePortal() {
+  if (portalEl) return;
+  portalEl = document.createElement('div');
+  portalEl.className = 'proj-portal';
+  document.body.appendChild(portalEl);
+}
+function showPortal(idx) {
+  ensurePortal();
+  const p = PROJECTS[idx];
+  // Find the source item to match its position
+  const srcEl = listEl?.querySelector(`.proj-item[data-idx="${idx}"]`);
+  if (!srcEl) return;
+  const rect = srcEl.getBoundingClientRect();
+  portalEl.textContent = p.title;
+  portalEl.style.top    = rect.top  + 'px';
+  portalEl.style.left   = rect.left + 'px';
+  portalEl.style.width  = rect.width + 'px';
+  portalEl.style.height = rect.height + 'px';
+  portalEl.classList.add('is-visible');
+}
+function hidePortal() {
+  portalEl?.classList.remove('is-visible');
+}
+
 // ── Hover ─────────────────────────────────────────────
 function onHover(idx) {
   hoveredIdx = idx;
   listEl?.classList.add('has-hover');
-  // Clear is-scroll-active so only 1 bar shows (CSS :hover handles the rest)
   listEl?.querySelectorAll('.proj-item').forEach(el => el.classList.remove('is-scroll-active'));
   setActiveThumb(idx, true);
+  showPortal(idx);
 }
 function onLeave() {
   hoveredIdx = -1;
   listEl?.classList.remove('has-hover');
   thumbEls.forEach(t => t.classList.remove('is-colored'));
-  applyDrum(); // re-marks is-scroll-active
+  hidePortal();
+  applyDrum();
 }
 
 // ── Thumbnail state ───────────────────────────────────
@@ -274,5 +301,6 @@ export function hideProjects() {
   if (drumRaf) { cancelAnimationFrame(drumRaf); drumRaf = null; }
   if (tileRaf) { cancelAnimationFrame(tileRaf); tileRaf = null; }
   if (document.body.dataset.page === 'projects') delete document.body.dataset.page;
+  hidePortal();
   resumeLenis();
 }

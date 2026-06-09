@@ -1551,6 +1551,25 @@ body[data-page="playground"] .cpop {
    PROJECTS PAGE — yutaabe style
    ═══════════════════════════════════════════════════ */
 
+/* Portal — active title floats above the 3D mask canvas */
+.proj-portal {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  padding-left: 6vw;
+  box-sizing: border-box;
+  font: 900 9vw/1 'Big Shoulders Display', 'Barlow Condensed', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: rgba(255,255,255,1);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 960;          /* above #stage at 952 */
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.proj-portal.is-visible { opacity: 1; }
+
 #page-projects {
   position: fixed;
   inset: 0;
