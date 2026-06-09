@@ -1637,40 +1637,47 @@ body[data-page="playground"] .cpop {
   -webkit-text-stroke: 0px transparent;
 }
 
-/* ── Thumbnails right column ───────────────────── */
-.proj-thumbs {
-  width: 150px;
+/* ── Card deck (right) ─────────────────────────── */
+.proj-deck {
+  width: 200px;
   flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;             /* no gap — images flush together */
-  padding: 0;
-  margin-right: 0;    /* flush to right edge */
-  align-self: stretch;
+  align-self: center;
+  margin-right: 3vw;
+  position: relative;
+  height: 260px;
 }
-.proj-thumb-wrap {
-  flex: 1;
-  overflow: hidden;
-  min-height: 0;
+
+/* Per-card stacking offsets — index 0 = top of deck */
+.proj-card {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  filter: grayscale(1) brightness(0.35);
+  /* Each card: unique rotation & offset based on --si */
+  --rot:  calc( (var(--si) * 37 - 60) * 0.06deg );   /* pseudo-random spread */
+  --tx:   calc( (var(--si) * 23 - 50) * 0.18px );
+  --ty:   calc( (var(--si) * 17 - 40) * 0.14px );
+  transform: rotate(var(--rot)) translate(var(--tx), var(--ty));
+  transition:
+    transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1),
+    filter    0.4s ease,
+    box-shadow 0.4s ease;
+  z-index: calc(6 - var(--si)); /* card 0 on top by default */
 }
-.proj-thumb {
-  width: 100%;
-  height: 100%;
-  filter: grayscale(1) brightness(0.45);
-  transform: scale(1);
-  transform-origin: center;
-  transition: filter 0.4s ease, transform 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
-  opacity: 0.55;
+
+/* Active card flies out — left & up from the deck */
+.proj-card.is-active {
+  transform: translate(-55px, -30px) rotate(-2deg) scale(1.06);
+  z-index: 20;
+  filter: grayscale(1) brightness(0.6);
 }
-.proj-thumb.is-active {
-  filter: grayscale(1) brightness(0.7);
-  opacity: 0.8;
-}
-/* hover: full color + scale up — wrap clips the overflow */
-.proj-thumb.is-colored {
+
+/* Hovered = full color + bigger fly-out */
+.proj-card.is-colored {
+  transform: translate(-65px, -38px) rotate(-2deg) scale(1.12);
+  z-index: 20;
   filter: grayscale(0) brightness(1);
-  opacity: 1;
-  transform: scale(1.13);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
 }
 
 /* ── Detail view ───────────────────────────────── */

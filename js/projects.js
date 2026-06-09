@@ -88,22 +88,25 @@ function buildList() {
   scrollWrap.appendChild(listEl);
   listView.appendChild(scrollWrap);
 
-  // RIGHT: thumbnails
-  const thumbCol = document.createElement('div');
-  thumbCol.className = 'proj-thumbs';
+  // RIGHT: stacked cards deck
+  const deck = document.createElement('div');
+  deck.className = 'proj-deck';
   thumbEls = [];
-  PROJECTS.forEach((p, i) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'proj-thumb-wrap';
-    const inner = document.createElement('div');
-    inner.className = 'proj-thumb';
-    inner.style.background = p.grad;
-    inner.dataset.idx = i;
-    wrap.appendChild(inner);
-    thumbCol.appendChild(wrap);
-    thumbEls.push(inner);
+
+  // Render in reverse so card 0 is on top visually
+  [...PROJECTS].reverse().forEach((p, ri) => {
+    const i = N - 1 - ri; // real index
+    const card = document.createElement('div');
+    card.className = 'proj-card';
+    card.dataset.idx = i;
+    card.style.background = p.grad;
+    // Each card gets a unique stack offset via CSS variable
+    card.style.setProperty('--si', i);
+    deck.appendChild(card);
+    thumbEls[i] = card;
   });
-  listView.appendChild(thumbCol);
+
+  listView.appendChild(deck);
 
   // Init drum after fonts + layout
   document.fonts.ready.then(() => requestAnimationFrame(initDrum));
@@ -194,10 +197,11 @@ function onLeave() {
 // ── Thumbnail state ───────────────────────────────────
 function setActiveThumb(idx, colored) {
   thumbEls.forEach((t, i) => {
+    if (!t) return;
     t.classList.toggle('is-active',  i === idx);
     t.classList.toggle('is-colored', colored && i === idx);
   });
-  // Mark scroll-active item for bar — only when not hovering
+  // Mark scroll-active item for neon bar — only when not hovering
   if (!colored) {
     listEl?.querySelectorAll('.proj-item').forEach(el => {
       el.classList.toggle('is-scroll-active', parseInt(el.dataset.idx) === idx);
