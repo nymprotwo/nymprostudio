@@ -98,7 +98,7 @@ function buildList() {
       li.className = 'proj-item';
       li.dataset.idx = i;
       li.innerHTML = `<span class="proj-num">${p.num}</span><span class="proj-name">${p.title}</span>`;
-      li.addEventListener('mouseenter', () => onHover(i));
+      li.addEventListener('mouseenter', () => onHover(i, li));
       li.addEventListener('mouseleave', onLeave);
       li.addEventListener('click',      () => openDetail(i));
       ul.appendChild(li);
@@ -192,18 +192,21 @@ function setActiveThumb(idx, colored) {
 }
 
 // ── Hover ─────────────────────────────────────────────
-function onHover(idx) {
+function onHover(idx, el) {
   hoveredIdx = idx;
-  scrollEl?.querySelectorAll('.proj-item').forEach(el => {
-    const match = parseInt(el.dataset.idx) === idx;
-    el.classList.toggle('is-hovered', match);
-    el.classList.toggle('is-dimmed',  !match);
+  // Dim ALL items, then un-dim only this specific element
+  scrollEl?.querySelectorAll('.proj-item').forEach(item => {
+    item.classList.remove('is-hovered');
+    item.classList.add('is-dimmed');
   });
+  el.classList.remove('is-dimmed');
+  el.classList.add('is-hovered');
   // Thumb: highlight + show color
   thumbEls.forEach((t, i) => {
     t.classList.toggle('is-active',  i === idx);
     t.classList.toggle('is-colored', i === idx);
   });
+  setActiveThumb(idx, true);
 }
 
 function onLeave() {
