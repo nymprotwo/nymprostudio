@@ -9,12 +9,12 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 import { registerExitHandler }    from './overlays.js?v=28';
 
 const PROJECTS = [
-  { num:'01', title:'NYMPRO STUDIO',   year:'2026', tags:'IDENTITY / WEB',      grad:'linear-gradient(135deg,#0d1b2a,#1e3a5f,#0a2540)' },
-  { num:'02', title:'MOTION SYSTEMS',  year:'2025', tags:'UI / FRONTEND',        grad:'linear-gradient(135deg,#1a0a2e,#4a1070,#1a0030)' },
-  { num:'03', title:'BRAND IDENTITY',  year:'2025', tags:'BRANDING / STRATEGY',  grad:'linear-gradient(135deg,#0a1a0a,#0d4a1a,#003015)' },
-  { num:'04', title:'DIGITAL PRODUCT', year:'2024', tags:'APP / DEVELOPMENT',    grad:'linear-gradient(135deg,#1a1200,#5a3a00,#2a1800)' },
-  { num:'05', title:'CREATIVE TOOLS',  year:'2024', tags:'WEB / 3D',             grad:'linear-gradient(135deg,#1a0008,#5a0018,#2a0010)' },
-  { num:'06', title:'VISUAL LANGUAGE', year:'2023', tags:'ART DIRECTION',        grad:'linear-gradient(135deg,#001a1a,#00585a,#002828)' },
+  { num:'01', title:'NYMPRO STUDIO',          year:'2026', tags:'IDENTITY / WEB',      grad:'linear-gradient(135deg,#0d1b2a,#1e3a5f,#0a2540)' },
+  { num:'02', title:'NORTH JERSEY DENTAL LAB',year:'2025', tags:'BRANDING / WEB',       grad:'linear-gradient(135deg,#0a0a0a,#1a1a1a,#0d0d0d)', img:'img/njdl-preview.png' },
+  { num:'03', title:'MOTION SYSTEMS',         year:'2025', tags:'UI / FRONTEND',        grad:'linear-gradient(135deg,#1a0a2e,#4a1070,#1a0030)' },
+  { num:'04', title:'BRAND IDENTITY',         year:'2025', tags:'BRANDING / STRATEGY',  grad:'linear-gradient(135deg,#0a1a0a,#0d4a1a,#003015)' },
+  { num:'05', title:'DIGITAL PRODUCT',        year:'2024', tags:'APP / DEVELOPMENT',    grad:'linear-gradient(135deg,#1a1200,#5a3a00,#2a1800)' },
+  { num:'06', title:'VISUAL LANGUAGE',        year:'2023', tags:'ART DIRECTION',        grad:'linear-gradient(135deg,#001a1a,#00585a,#002828)' },
 ];
 const N = PROJECTS.length;
 
@@ -100,8 +100,13 @@ function buildList() {
     const card = document.createElement('div');
     card.className = 'proj-card';
     card.dataset.idx = i;
-    card.style.background = p.grad;
-    // Each card gets a unique stack offset via CSS variable
+    if (p.img) {
+      card.style.backgroundImage = `url('${p.img}')`;
+      card.style.backgroundSize = 'cover';
+      card.style.backgroundPosition = 'center';
+    } else {
+      card.style.background = p.grad;
+    }
     card.style.setProperty('--si', i);
     deck.appendChild(card);
     thumbEls[i] = card;
