@@ -11,6 +11,7 @@ import { registerExitHandler }    from './overlays.js?v=28';
 // ── Config ─────────────────────────────────────────
 const CELL    = 30;
 const MINE_R  = 0.155;
+const HEADER_H = 60; // px — fixed header height to skip
 const NUM_COL = ['','#00d4ff','#00ff88','#ff4466','#bb88ff','#ff8822','#00ffdd','#ffffff','#888899'];
 
 // Scale ripple
@@ -452,7 +453,7 @@ function onMouseMove(e){
 function onMouseLeave(){ hoverIdx=-1; }
 function onResize(){
   if(!canvas) return;
-  canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+  canvas.width=window.innerWidth; canvas.height=window.innerHeight-HEADER_H;
   newGame();
 }
 
@@ -470,7 +471,7 @@ export function showSweep(){
   canvas=document.getElementById('sweep-canvas');
   if(!canvas) return;
   ctx=canvas.getContext('2d');
-  canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+  canvas.width=window.innerWidth; canvas.height=window.innerHeight-HEADER_H;
 
   newGame();
   active=true;

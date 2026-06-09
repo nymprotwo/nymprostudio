@@ -121,7 +121,11 @@ button { font: inherit; background: none; border: none; color: inherit; cursor: 
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  transition: opacity 0.15s linear;
+  transition: opacity 0.15s linear, z-index 0s;
+}
+/* When projects page is open — mask canvas floats above inactive text */
+body[data-page="projects"] #stage {
+  z-index: 952; /* above #page-projects (950), over inactive text */
 }
 
 #stage canvas {
@@ -891,6 +895,8 @@ body.is-page-open .page__year { opacity: 1; transform: translateY(0); }
   font-family: var(--font-mono);
   font-size: 0.95rem;
   border-top: 1px solid var(--brd);
+  position: relative;
+  z-index: 2;
 }
 .skills li {
   display: flex;
@@ -898,6 +904,9 @@ body.is-page-open .page__year { opacity: 1; transform: translateY(0); }
   padding: 0.55rem 0;
   border-bottom: 1px solid var(--brd);
   transition: padding 0.3s ease, color 0.3s ease;
+  position: relative;
+  z-index: 2;
+  background: transparent;
 }
 .skills li:hover { padding-left: 0.5rem; color: var(--accent); }
 .skills li span { color: var(--text-mute); min-width: 2.5em; }
@@ -919,7 +928,7 @@ body.is-page-open .page__year { opacity: 1; transform: translateY(0); }
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
-  z-index: 200;
+  z-index: 1;
   transition: opacity 0.18s ease;
   will-change: transform;
   box-shadow: 0 0 24px rgba(30,159,226,0.12), 0 8px 32px rgba(0,0,0,0.6);
@@ -1505,9 +1514,8 @@ body[data-page="playground"] .cpop {
 #page-sweep.is-visible { opacity: 1; }
 #sweep-canvas {
   position: absolute;
-  inset: 0;
+  top: 60px; left: 0; right: 0; bottom: 0;
   width: 100%;
-  height: 100%;
   display: block;
 }
 #page-sweep .pg-close {
@@ -1547,10 +1555,19 @@ body[data-page="playground"] .cpop {
   position: fixed;
   inset: 0;
   z-index: 950;
-  background: rgba(0,0,0,0.82); /* semi-transparent — mask canvas shows through */
+  background: transparent; /* mask canvas shows through fully */
   overflow: hidden;
   opacity: 0;
   transition: opacity 0.5s ease;
+}
+/* Dark film over mask — sits below text */
+#page-projects::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  z-index: 0;
+  pointer-events: none;
 }
 #page-projects.is-visible { opacity: 1; }
 
@@ -1563,6 +1580,7 @@ body[data-page="playground"] .cpop {
   align-items: stretch;
   overflow: hidden;
   transition: opacity 0.4s ease, transform 0.4s ease;
+  z-index: 1; /* above ::before dark film */
 }
 .proj-list-view.is-hidden {
   opacity: 0;
@@ -1588,52 +1606,91 @@ body[data-page="playground"] .cpop {
   overflow: hidden;
 }
 
+/* ── Mask overlay — appears over inactive items, under active ── */
+.proj-list--drum::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.52);
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.proj-list--drum.has-hover::after { opacity: 1; }
+
 .proj-item {
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 0 0 0 5.5vw;
+  padding: 0 0 0 6vw;    /* text starts after bar + number */
   /* height set by JS: itemH px */
   cursor: pointer;
   user-select: none;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+  transition: z-index 0s;
 }
 .proj-item.is-dimmed { opacity: 1; }
-.proj-num { display: none; }
 
-.proj-name {
-  font: 800 9vw/1 'Barlow Condensed', 'Inter', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-  color: rgba(255,255,255,0.22);
-  -webkit-text-stroke: 0.5px rgba(255,255,255,0.14);
-  white-space: nowrap;
-  transition: color 0.3s ease, -webkit-text-stroke 0.3s ease;
-  position: relative;
-  padding-left: 0.6vw;   /* space for the bar */
+/* Active item pops above the overlay */
+.proj-item:hover,
+.proj-item.is-scroll-active {
+  z-index: 3;
 }
 
-/* ── Vertical neon bar — exactly text height ───── */
-.proj-name::before {
+/* ── Vertical neon bar — left edge of screen, text height ── */
+.proj-item::before {
   content: '';
   position: absolute;
-  left: -0.1vw;
-  top: 0;
-  height: 1em;           /* = font-size, exact text cap height */
-  width: 3px;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 7.5vw;         /* ~cap-height of 9vw Big Shoulders Display */
+  width: 6px;            /* 2× thicker */
   background: transparent;
-  border-radius: 2px;
+  border-radius: 3px;
   transition: background 0.25s ease, box-shadow 0.25s ease;
 }
 
 /* CSS :hover — immune to scroll-jump sticking bug */
-.proj-item:hover .proj-name::before,
-.proj-item.is-scroll-active .proj-name::before {
+.proj-item:hover::before,
+.proj-item.is-scroll-active::before {
   background: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow), 0 0 20px rgba(30,159,226,0.25);
+  box-shadow: 0 0 12px var(--accent-glow), 0 0 28px rgba(30,159,226,0.3);
 }
+
+/* ── Project number ───────────────────────────────── */
+.proj-num {
+  position: absolute;
+  left: 1.1vw;           /* just right of the bar */
+  font: 700 0.65rem/1 var(--font-mono);
+  letter-spacing: 0.05em;
+  color: rgba(255,255,255,0.0);
+  transition: color 0.25s ease;
+}
+.proj-item:hover .proj-num,
+.proj-item.is-scroll-active .proj-num {
+  color: var(--accent);
+}
+
+.proj-name {
+  font: 900 9vw/1 'Big Shoulders Display', 'Barlow Condensed', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: rgba(255,255,255,0.18);
+  -webkit-text-stroke: 0.5px rgba(255,255,255,0.1);
+  white-space: nowrap;
+  transition: color 0.3s ease, -webkit-text-stroke 0.3s ease;
+}
+
 .proj-item:hover .proj-name {
   color: rgba(255,255,255,1);
+  -webkit-text-stroke: 0px transparent;
+}
+.proj-item.is-scroll-active .proj-name {
+  color: rgba(255,255,255,0.55);
   -webkit-text-stroke: 0px transparent;
 }
 
@@ -1645,6 +1702,7 @@ body[data-page="playground"] .cpop {
   margin-right: 3vw;
   position: relative;
   height: 260px;
+  z-index: 4; /* always above the hover overlay */
 }
 
 /* Per-card stacking offsets — index 0 = top of deck */

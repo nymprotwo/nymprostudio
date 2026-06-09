@@ -78,7 +78,7 @@ function buildList() {
     const li = document.createElement('li');
     li.className = 'proj-item';
     li.dataset.idx = i;
-    li.innerHTML = `<span class="proj-name">${p.title}</span>`;
+    li.innerHTML = `<span class="proj-num">${p.num}</span><span class="proj-name">${p.title}</span>`;
     li.addEventListener('mouseenter', () => onHover(i));
     li.addEventListener('mouseleave', onLeave);
     li.addEventListener('click', () => openDetail(i));
@@ -184,12 +184,14 @@ function applyDrum() {
 // ── Hover ─────────────────────────────────────────────
 function onHover(idx) {
   hoveredIdx = idx;
+  listEl?.classList.add('has-hover');
   // Clear is-scroll-active so only 1 bar shows (CSS :hover handles the rest)
   listEl?.querySelectorAll('.proj-item').forEach(el => el.classList.remove('is-scroll-active'));
   setActiveThumb(idx, true);
 }
 function onLeave() {
   hoveredIdx = -1;
+  listEl?.classList.remove('has-hover');
   thumbEls.forEach(t => t.classList.remove('is-colored'));
   applyDrum(); // re-marks is-scroll-active
 }
