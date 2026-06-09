@@ -1577,6 +1577,7 @@ body[data-page="playground"] .cpop {
   overflow-y: scroll;
   overflow-x: hidden;
   scrollbar-width: none;
+  scroll-snap-type: y mandatory;   /* drum-wheel snap */
 }
 .proj-scroll::-webkit-scrollbar { display: none; }
 
@@ -1589,45 +1590,48 @@ body[data-page="playground"] .cpop {
 .proj-item {
   display: flex;
   align-items: center;
-  gap: 1.2vw;
-  padding: 0 0 0 6vw;
-  min-height: 17vh;       /* must stay ≥ 100vh/6 for infinite scroll to work */
+  gap: 0;
+  padding: 0 0 0 5.5vw;
+  min-height: 17vh;
   cursor: pointer;
   user-select: none;
-  position: relative;
+  scroll-snap-align: center;   /* snap each item to center */
 }
 .proj-item.is-dimmed { opacity: 1; }
-
-/* ── Vertical neon bar — full item height ──────── */
-.proj-item::before {
-  content: '';
-  position: absolute;
-  left: 5vw;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: transparent;
-  border-radius: 1px;
-  transition: background 0.25s ease, box-shadow 0.25s ease;
-}
-.proj-item.is-hovered::before,
-.proj-item.is-scroll-active::before {
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-glow), 0 0 18px rgba(30,159,226,0.25);
-}
-
 .proj-num { display: none; }
 
 .proj-name {
-  font: 800 9vw/0.9 'Barlow Condensed', 'Inter', sans-serif;
+  font: 800 9vw/1 'Barlow Condensed', 'Inter', sans-serif;
   text-transform: uppercase;
   letter-spacing: -0.02em;
   color: rgba(255,255,255,0.22);
   -webkit-text-stroke: 0.5px rgba(255,255,255,0.14);
   white-space: nowrap;
   transition: color 0.3s ease, -webkit-text-stroke 0.3s ease;
+  position: relative;
+  padding-left: 0.6vw;   /* space for the bar */
 }
-.proj-item.is-hovered .proj-name {
+
+/* ── Vertical neon bar — exactly text height ───── */
+.proj-name::before {
+  content: '';
+  position: absolute;
+  left: -0.1vw;
+  top: 0;
+  height: 1em;           /* = font-size, exact text cap height */
+  width: 3px;
+  background: transparent;
+  border-radius: 2px;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* CSS :hover — immune to scroll-jump sticking bug */
+.proj-item:hover .proj-name::before,
+.proj-item.is-scroll-active .proj-name::before {
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow), 0 0 20px rgba(30,159,226,0.25);
+}
+.proj-item:hover .proj-name {
   color: rgba(255,255,255,1);
   -webkit-text-stroke: 0px transparent;
 }
@@ -1661,11 +1665,11 @@ body[data-page="playground"] .cpop {
   filter: grayscale(1) brightness(0.7);
   opacity: 0.8;
 }
-/* hover: full color + scale up */
+/* hover: full color + scale up — wrap clips the overflow */
 .proj-thumb.is-colored {
   filter: grayscale(0) brightness(1);
   opacity: 1;
-  transform: scale(1.07);
+  transform: scale(1.13);
 }
 
 /* ── Detail view ───────────────────────────────── */

@@ -19,6 +19,7 @@ const PROJECTS = [
 ];
 
 const N = PROJECTS.length;
+const COPIES = 5; // copies for infinite drum scroll (must be odd)
 
 // ── State ─────────────────────────────────────────────
 let pg         = null;
@@ -89,14 +90,14 @@ function buildList() {
   const ul = document.createElement('ul');
   ul.className = 'proj-list';
 
-  // 3 copies for seamless loop
-  for (let copy = 0; copy < 3; copy++) {
+  // 5 copies for seamless drum loop
+  for (let copy = 0; copy < COPIES; copy++) {
     PROJECTS.forEach((p, i) => {
       const li = document.createElement('li');
       li.className = 'proj-item';
       li.dataset.idx = i;
       li.innerHTML = `<span class="proj-num">${p.num}</span><span class="proj-name">${p.title}</span>`;
-      li.addEventListener('mouseenter', () => onHover(i, li));
+      li.addEventListener('mouseenter', () => onHover(i));
       li.addEventListener('mouseleave', onLeave);
       li.addEventListener('click',      () => openDetail(i));
       ul.appendChild(li);
@@ -129,24 +130,33 @@ function buildList() {
 
   listView.appendChild(thumbCol);
 
-  // ── Scroll setup — wait for fonts so item heights are correct ──
+  // ── Scroll setup — wait for fonts so heights are correct ──
   const setupLoop = () => {
-    loopH = scrollEl.scrollHeight / 3;
-    scrollEl.scrollTop = loopH;
+    loopH = Math.round(scrollEl.scrollHeight / COPIES); // one copy height
+    // Start in the middle copy (copy index 2 of 0-4)
+    scrollEl.scrollTop = loopH * 2;
     scrollEl.addEventListener('scroll', onScroll, { passive: true });
     updateByScroll();
   };
   document.fonts.ready.then(() => requestAnimationFrame(setupLoop));
 }
 
-// ── Scroll → loop + active thumb ─────────────────────
+// ── Scroll → drum loop ───────────────────────────────
+let jumping = false;
 function onScroll() {
+  if (jumping) return;
   const st = scrollEl.scrollTop;
-  // Seamless loop: stay in middle copy at all times
-  if      (st >= loopH * 2) scrollEl.scrollTop = st - loopH;
-  else if (st <  loopH)     scrollEl.scrollTop = st + loopH;
-
-  if (hoveredIdx < 0) updateByScroll();
+  // Stay in copies 1–3 (indices 1–3 of 0–4), safe range [loopH, loopH*4)
+  if (st >= loopH * 4) {
+    jumping = true;
+    scrollEl.scrollTop = st - loopH * 2;
+    requestAnimationFrame(() => { jumping = false; });
+  } else if (st < loopH) {
+    jumping = true;
+    scrollEl.scrollTop = st + loopH * 2;
+    requestAnimationFrame(() => { jumping = false; });
+  }
+  updateByScroll();
 }
 
 // Find which item is closest to vertical center, mark it is-scroll-active
@@ -174,16 +184,13 @@ function setActiveThumb(idx, colored) {
 }
 
 // ── Hover ─────────────────────────────────────────────
-function onHover(idx, el) {
+function onHover(idx) {
   hoveredIdx = idx;
-  scrollEl?.querySelectorAll('.proj-item').forEach(item => item.classList.remove('is-hovered'));
-  el.classList.add('is-hovered');
   setActiveThumb(idx, true);
 }
 
 function onLeave() {
   hoveredIdx = -1;
-  scrollEl?.querySelectorAll('.proj-item').forEach(el => el.classList.remove('is-hovered'));
   thumbEls.forEach(t => t.classList.remove('is-colored'));
   updateByScroll();
 }
