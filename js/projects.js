@@ -106,17 +106,7 @@ function buildList() {
   scrollEl.appendChild(ul);
   listView.appendChild(scrollEl);
 
-  // ── LEFT: number indicator (6 items, active = cyan) ──
-  const ind = document.createElement('div');
-  ind.className = 'proj-indicator';
-  PROJECTS.forEach((p, i) => {
-    const span = document.createElement('span');
-    span.className = 'proj-indicator__item' + (i === 0 ? ' is-active' : '');
-    span.textContent = p.num;
-    span.dataset.indIdx = i;
-    ind.appendChild(span);
-  });
-  listView.appendChild(ind);
+  // (indicator is now a CSS ::before bar on each .proj-item)
 
   // ── RIGHT: fixed thumbnail column ──
   const thumbCol = document.createElement('div');
@@ -152,36 +142,34 @@ function buildList() {
 // ── Scroll → loop + active thumb ─────────────────────
 function onScroll() {
   const st = scrollEl.scrollTop;
-  if (st >= loopH * 2) scrollEl.scrollTop = st - loopH;
-  else if (st <= 0)    scrollEl.scrollTop = st + loopH;
+  // Seamless loop: stay in middle copy at all times
+  if      (st >= loopH * 2) scrollEl.scrollTop = st - loopH;
+  else if (st <  loopH)     scrollEl.scrollTop = st + loopH;
 
-  // Only update active thumb if no item is hovered
   if (hoveredIdx < 0) updateByScroll();
 }
 
-// Find which project item is closest to vertical center of the scroll container
+// Find which item is closest to vertical center, mark it is-scroll-active
 function updateByScroll() {
   if (!scrollEl) return;
   const items = scrollEl.querySelectorAll('.proj-item');
   const cRect = scrollEl.getBoundingClientRect();
   const centerY = cRect.top + cRect.height / 2;
-  let best = 0, bestD = Infinity;
+  let bestEl = null, bestIdx = 0, bestD = Infinity;
   items.forEach(el => {
     const r = el.getBoundingClientRect();
     const d = Math.abs(r.top + r.height / 2 - centerY);
-    if (d < bestD) { bestD = d; best = parseInt(el.dataset.idx); }
+    if (d < bestD) { bestD = d; bestEl = el; bestIdx = parseInt(el.dataset.idx); }
   });
-  setActiveThumb(best, false);
+  items.forEach(el => el.classList.remove('is-scroll-active'));
+  bestEl?.classList.add('is-scroll-active');
+  setActiveThumb(bestIdx, false);
 }
 
 function setActiveThumb(idx, colored) {
   thumbEls.forEach((t, i) => {
     t.classList.toggle('is-active',  i === idx);
     t.classList.toggle('is-colored', colored && i === idx);
-  });
-  // Update left number indicator
-  listView?.querySelectorAll('.proj-indicator__item').forEach(el => {
-    el.classList.toggle('is-active', parseInt(el.dataset.indIdx) === idx);
   });
 }
 

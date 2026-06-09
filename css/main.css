@@ -1588,112 +1588,84 @@ body[data-page="playground"] .cpop {
 
 .proj-item {
   display: flex;
-  align-items: center;      /* vertically center text in the tall row */
+  align-items: center;
   gap: 1.2vw;
-  padding: 0 0 0 7vw;
-  min-height: 17vh;         /* only ~5-6 visible → overflow → infinite scroll works */
+  padding: 0 0 0 6vw;
+  min-height: 17vh;       /* must stay ≥ 100vh/6 for infinite scroll to work */
   cursor: pointer;
-  transition: opacity 0.35s ease;
   user-select: none;
+  position: relative;
 }
-/* dimmed — not used for hover anymore */
 .proj-item.is-dimmed { opacity: 1; }
 
-.proj-num {
-  display: none; /* numbers shown on left indicator instead */
+/* ── Vertical neon bar — full item height ──────── */
+.proj-item::before {
+  content: '';
+  position: absolute;
+  left: 5vw;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  border-radius: 1px;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
 }
+.proj-item.is-hovered::before,
+.proj-item.is-scroll-active::before {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow), 0 0 18px rgba(30,159,226,0.25);
+}
+
+.proj-num { display: none; }
 
 .proj-name {
   font: 800 9vw/0.9 'Barlow Condensed', 'Inter', sans-serif;
   text-transform: uppercase;
   letter-spacing: -0.02em;
-  /* default: visible gray outline feel */
   color: rgba(255,255,255,0.22);
-  -webkit-text-stroke: 0.5px rgba(255,255,255,0.18);
+  -webkit-text-stroke: 0.5px rgba(255,255,255,0.14);
   white-space: nowrap;
-  transition: color 0.3s ease, text-shadow 0.3s ease, -webkit-text-stroke 0.3s ease;
+  transition: color 0.3s ease, -webkit-text-stroke 0.3s ease;
 }
 .proj-item.is-hovered .proj-name {
   color: rgba(255,255,255,1);
   -webkit-text-stroke: 0px transparent;
 }
 
-/* ── Left number indicator ─────────────────────── */
-.proj-indicator {
-  position: absolute;
-  left: 22px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  align-items: flex-start;
-  z-index: 5;
-  pointer-events: none;
-  height: 60vh;
-  justify-content: space-between;
-}
-.proj-indicator__item {
-  font: 400 10px/1 'Space Mono', monospace;
-  color: rgba(255,255,255,0.2);
-  letter-spacing: 0.04em;
-  transition: color 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.proj-indicator__item::before {
-  content: '';
-  display: block;
-  width: 14px;
-  height: 1px;
-  background: currentColor;
-  transition: width 0.3s ease, background 0.3s ease;
-}
-.proj-indicator__item.is-active {
-  color: var(--accent);
-}
-.proj-indicator__item.is-active::before {
-  width: 22px;
-  background: var(--accent);
-  box-shadow: 0 0 6px var(--accent-glow);
-}
-
 /* ── Thumbnails right column ───────────────────── */
 .proj-thumbs {
-  width: 140px;
+  width: 150px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 3px 0;
-  margin-right: 3vw;
-  align-self: stretch;   /* fill full height of list-view */
+  gap: 0;             /* no gap — images flush together */
+  padding: 0;
+  margin-right: 0;    /* flush to right edge */
+  align-self: stretch;
 }
 .proj-thumb-wrap {
-  flex: 1;               /* each slot = viewport_height / N */
+  flex: 1;
   overflow: hidden;
-  border-radius: 2px;
   min-height: 0;
 }
 .proj-thumb {
   width: 100%;
   height: 100%;
-  border-radius: 2px;
-  /* B&W by default */
   filter: grayscale(1) brightness(0.45);
-  transition: filter 0.4s ease, opacity 0.4s ease;
-  opacity: 0.6;
+  transform: scale(1);
+  transform-origin: center;
+  transition: filter 0.4s ease, transform 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
+  opacity: 0.55;
 }
-/* scroll-tracked: slightly brighter B&W */
 .proj-thumb.is-active {
-  filter: grayscale(1) brightness(0.75);
-  opacity: 0.85;
+  filter: grayscale(1) brightness(0.7);
+  opacity: 0.8;
 }
-/* hover: full color */
+/* hover: full color + scale up */
 .proj-thumb.is-colored {
   filter: grayscale(0) brightness(1);
   opacity: 1;
+  transform: scale(1.07);
 }
 
 /* ── Detail view ───────────────────────────────── */
