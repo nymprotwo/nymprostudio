@@ -1570,21 +1570,22 @@ body[data-page="playground"] .cpop {
   pointer-events: none;
 }
 
-/* Scrollable left column */
+/* Drum scroll container — overflow hidden, items positioned by JS transform */
 .proj-scroll {
   flex: 1;
   min-width: 0;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  scrollbar-width: none;
-  scroll-snap-type: y mandatory;   /* drum-wheel snap */
+  overflow: hidden;
+  position: relative;
 }
-.proj-scroll::-webkit-scrollbar { display: none; }
 
 .proj-list {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+.proj-list--drum {
+  position: relative; /* items are absolute children */
+  overflow: hidden;
 }
 
 .proj-item {
@@ -1592,10 +1593,10 @@ body[data-page="playground"] .cpop {
   align-items: center;
   gap: 0;
   padding: 0 0 0 5.5vw;
-  min-height: 17vh;
+  /* height set by JS: itemH px */
   cursor: pointer;
   user-select: none;
-  scroll-snap-align: center;   /* snap each item to center */
+  box-sizing: border-box;
 }
 .proj-item.is-dimmed { opacity: 1; }
 .proj-num { display: none; }

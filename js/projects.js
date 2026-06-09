@@ -1,198 +1,208 @@
 // ─────────────────────────────────────────────────────
-// NYM / PROJECTS — yutaabe-style list + detail  v3
-// • Infinite manual scroll (no auto-move)
-// • Text left, fixed thumbs right (B&W → color on hover)
-// • Thumbs aligned to viewport height, 1 per project
+// NYM / PROJECTS  v10
+// • 6 real items, infinite drum scroll via transform
+// • CSS :hover for bar (no sticking)
+// • B&W thumbs → color+scale on hover
 // ─────────────────────────────────────────────────────
 
 import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 import { registerExitHandler }    from './overlays.js?v=28';
 
-// ── Project data ──────────────────────────────────────
 const PROJECTS = [
-  { num: '01', title: 'NYMPRO STUDIO',   year: '2026', tags: 'IDENTITY / WEB',      grad: 'linear-gradient(135deg,#0d1b2a,#1e3a5f,#0a2540)' },
-  { num: '02', title: 'MOTION SYSTEMS',  year: '2025', tags: 'UI / FRONTEND',        grad: 'linear-gradient(135deg,#1a0a2e,#4a1070,#1a0030)' },
-  { num: '03', title: 'BRAND IDENTITY',  year: '2025', tags: 'BRANDING / STRATEGY',  grad: 'linear-gradient(135deg,#0a1a0a,#0d4a1a,#003015)' },
-  { num: '04', title: 'DIGITAL PRODUCT', year: '2024', tags: 'APP / DEVELOPMENT',    grad: 'linear-gradient(135deg,#1a1200,#5a3a00,#2a1800)' },
-  { num: '05', title: 'CREATIVE TOOLS',  year: '2024', tags: 'WEB / 3D',             grad: 'linear-gradient(135deg,#1a0008,#5a0018,#2a0010)' },
-  { num: '06', title: 'VISUAL LANGUAGE', year: '2023', tags: 'ART DIRECTION',        grad: 'linear-gradient(135deg,#001a1a,#00585a,#002828)' },
+  { num:'01', title:'NYMPRO STUDIO',   year:'2026', tags:'IDENTITY / WEB',      grad:'linear-gradient(135deg,#0d1b2a,#1e3a5f,#0a2540)' },
+  { num:'02', title:'MOTION SYSTEMS',  year:'2025', tags:'UI / FRONTEND',        grad:'linear-gradient(135deg,#1a0a2e,#4a1070,#1a0030)' },
+  { num:'03', title:'BRAND IDENTITY',  year:'2025', tags:'BRANDING / STRATEGY',  grad:'linear-gradient(135deg,#0a1a0a,#0d4a1a,#003015)' },
+  { num:'04', title:'DIGITAL PRODUCT', year:'2024', tags:'APP / DEVELOPMENT',    grad:'linear-gradient(135deg,#1a1200,#5a3a00,#2a1800)' },
+  { num:'05', title:'CREATIVE TOOLS',  year:'2024', tags:'WEB / 3D',             grad:'linear-gradient(135deg,#1a0008,#5a0018,#2a0010)' },
+  { num:'06', title:'VISUAL LANGUAGE', year:'2023', tags:'ART DIRECTION',        grad:'linear-gradient(135deg,#001a1a,#00585a,#002828)' },
 ];
-
 const N = PROJECTS.length;
-const COPIES = 5; // copies for infinite drum scroll (must be odd)
 
 // ── State ─────────────────────────────────────────────
 let pg         = null;
 let listView   = null;
 let detailView = null;
-let scrollEl   = null;   // the scrollable div (left)
-let thumbEls   = [];     // one thumb per project (right, fixed)
-let loopH      = 0;      // height of one full copy
+let listEl     = null;   // <ul> with exactly N <li> items
+let scrollWrap = null;   // the overflow:hidden container
+let thumbEls   = [];
 let tileRaf    = null;
-let hoveredIdx = -1;
+
+// Drum scroll state
+let itemH       = 0;     // px height of one item
+let totalH      = 0;     // itemH * N
+let scrollCur   = 0;     // current animated offset
+let scrollTgt   = 0;     // target offset (wheel accumulates here)
+let drumRaf     = null;
+let hoveredIdx  = -1;
 
 // ── Pixel-tile reveal ─────────────────────────────────
 const TILE = 20;
-
 function initTileReveal(canvas, grad) {
   const W = canvas.offsetWidth  || 600;
   const H = canvas.offsetHeight || 380;
-  canvas.width  = W;
-  canvas.height = H;
+  canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-
   const img = document.createElement('canvas');
   img.width = W; img.height = H;
   const ic = img.getContext('2d');
-  ic.fillStyle = grad;
-  ic.fillRect(0, 0, W, H);
-  for (let y = 0; y < H; y += 3) {
-    ic.fillStyle = `rgba(255,255,255,${0.015 + Math.random() * 0.03})`;
-    ic.fillRect(0, y, W, 1);
+  ic.fillStyle = grad; ic.fillRect(0,0,W,H);
+  for (let y=0;y<H;y+=3){ic.fillStyle=`rgba(255,255,255,${.015+Math.random()*.03})`;ic.fillRect(0,y,W,1);}
+  const tiles=[];
+  for(let r=0;r*TILE<H;r++) for(let c=0;c*TILE<W;c++) tiles.push([c*TILE,r*TILE]);
+  for(let i=tiles.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[tiles[i],tiles[j]]=[tiles[j],tiles[i]];}
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  let n=0; const BATCH=Math.max(3,Math.ceil(tiles.length/55));
+  if(tileRaf){cancelAnimationFrame(tileRaf);tileRaf=null;}
+  function step(){
+    if(n>=tiles.length)return;
+    const end=Math.min(n+BATCH,tiles.length);
+    for(;n<end;n++){const[tx,ty]=tiles[n];const tw=Math.min(TILE-1,W-tx),th=Math.min(TILE-1,H-ty);ctx.drawImage(img,tx,ty,tw,th,tx,ty,tw,th);}
+    tileRaf=requestAnimationFrame(step);
   }
-
-  const tiles = [];
-  for (let r = 0; r * TILE < H; r++)
-    for (let c = 0; c * TILE < W; c++)
-      tiles.push([c * TILE, r * TILE]);
-  for (let i = tiles.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
-  }
-
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, W, H);
-
-  let n = 0;
-  const BATCH = Math.max(3, Math.ceil(tiles.length / 55));
-  if (tileRaf) { cancelAnimationFrame(tileRaf); tileRaf = null; }
-  function step() {
-    if (n >= tiles.length) return;
-    const end = Math.min(n + BATCH, tiles.length);
-    for (; n < end; n++) {
-      const [tx, ty] = tiles[n];
-      ctx.drawImage(img, tx, ty, Math.min(TILE-1,W-tx), Math.min(TILE-1,H-ty),
-                              tx, ty, Math.min(TILE-1,W-tx), Math.min(TILE-1,H-ty));
-    }
-    tileRaf = requestAnimationFrame(step);
-  }
-  tileRaf = requestAnimationFrame(step);
+  tileRaf=requestAnimationFrame(step);
 }
 
 // ── Build list ────────────────────────────────────────
 function buildList() {
   listView.innerHTML = '';
 
-  // ── LEFT: scrollable list ──
-  scrollEl = document.createElement('div');
-  scrollEl.className = 'proj-scroll';
+  // LEFT: drum scroll wrapper
+  scrollWrap = document.createElement('div');
+  scrollWrap.className = 'proj-scroll';
 
-  const ul = document.createElement('ul');
-  ul.className = 'proj-list';
+  listEl = document.createElement('ul');
+  listEl.className = 'proj-list proj-list--drum';
 
-  // 5 copies for seamless drum loop
-  for (let copy = 0; copy < COPIES; copy++) {
-    PROJECTS.forEach((p, i) => {
-      const li = document.createElement('li');
-      li.className = 'proj-item';
-      li.dataset.idx = i;
-      li.innerHTML = `<span class="proj-num">${p.num}</span><span class="proj-name">${p.title}</span>`;
-      li.addEventListener('mouseenter', () => onHover(i));
-      li.addEventListener('mouseleave', onLeave);
-      li.addEventListener('click',      () => openDetail(i));
-      ul.appendChild(li);
-    });
-  }
+  // Only N real items — no clones!
+  PROJECTS.forEach((p, i) => {
+    const li = document.createElement('li');
+    li.className = 'proj-item';
+    li.dataset.idx = i;
+    li.innerHTML = `<span class="proj-name">${p.title}</span>`;
+    li.addEventListener('mouseenter', () => onHover(i));
+    li.addEventListener('mouseleave', onLeave);
+    li.addEventListener('click', () => openDetail(i));
+    listEl.appendChild(li);
+  });
 
-  scrollEl.appendChild(ul);
-  listView.appendChild(scrollEl);
+  scrollWrap.appendChild(listEl);
+  listView.appendChild(scrollWrap);
 
-  // (indicator is now a CSS ::before bar on each .proj-item)
-
-  // ── RIGHT: fixed thumbnail column ──
+  // RIGHT: thumbnails
   const thumbCol = document.createElement('div');
   thumbCol.className = 'proj-thumbs';
   thumbEls = [];
-
   PROJECTS.forEach((p, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'proj-thumb-wrap';
-
     const inner = document.createElement('div');
     inner.className = 'proj-thumb';
     inner.style.background = p.grad;
     inner.dataset.idx = i;
-
     wrap.appendChild(inner);
     thumbCol.appendChild(wrap);
     thumbEls.push(inner);
   });
-
   listView.appendChild(thumbCol);
 
-  // ── Scroll setup — wait for fonts so heights are correct ──
-  const setupLoop = () => {
-    loopH = Math.round(scrollEl.scrollHeight / COPIES); // one copy height
-    // Start in the middle copy (copy index 2 of 0-4)
-    scrollEl.scrollTop = loopH * 2;
-    scrollEl.addEventListener('scroll', onScroll, { passive: true });
-    updateByScroll();
-  };
-  document.fonts.ready.then(() => requestAnimationFrame(setupLoop));
+  // Init drum after fonts + layout
+  document.fonts.ready.then(() => requestAnimationFrame(initDrum));
 }
 
-// ── Scroll → drum loop ───────────────────────────────
-let jumping = false;
-function onScroll() {
-  if (jumping) return;
-  const st = scrollEl.scrollTop;
-  // Stay in copies 1–3 (indices 1–3 of 0–4), safe range [loopH, loopH*4)
-  if (st >= loopH * 4) {
-    jumping = true;
-    scrollEl.scrollTop = st - loopH * 2;
-    requestAnimationFrame(() => { jumping = false; });
-  } else if (st < loopH) {
-    jumping = true;
-    scrollEl.scrollTop = st + loopH * 2;
-    requestAnimationFrame(() => { jumping = false; });
+// ── Drum scroll engine ────────────────────────────────
+function initDrum() {
+  const containerH = scrollWrap.offsetHeight || window.innerHeight;
+  // Show ~5 items → itemH = containerH/5
+  itemH  = Math.round(containerH / 5);
+  totalH = N * itemH;
+
+  // Make list a transform stage (no overflow)
+  listEl.style.height = containerH + 'px';
+
+  // Position each item absolutely
+  Array.from(listEl.querySelectorAll('.proj-item')).forEach(el => {
+    el.style.position = 'absolute';
+    el.style.width    = '100%';
+    el.style.height   = itemH + 'px';
+    el.style.top      = '0';
+    el.style.left     = '0';
+    el.style.minHeight = 'unset';
+  });
+
+  scrollCur = 0;
+  scrollTgt = 0;
+  applyDrum();
+
+  // Wheel
+  scrollWrap.addEventListener('wheel', onWheel, { passive: false });
+
+  // Start RAF
+  if (drumRaf) cancelAnimationFrame(drumRaf);
+  function tick() {
+    drumRaf = requestAnimationFrame(tick);
+    const diff = scrollTgt - scrollCur;
+    if (Math.abs(diff) < 0.05) return;
+    scrollCur += diff * 0.10;
+    applyDrum();
   }
-  updateByScroll();
+  drumRaf = requestAnimationFrame(tick);
 }
 
-// Find which item is closest to vertical center, mark it is-scroll-active
-function updateByScroll() {
-  if (!scrollEl) return;
-  const items = scrollEl.querySelectorAll('.proj-item');
-  const cRect = scrollEl.getBoundingClientRect();
-  const centerY = cRect.top + cRect.height / 2;
-  let bestEl = null, bestIdx = 0, bestD = Infinity;
+function onWheel(e) {
+  e.preventDefault();
+  scrollTgt += e.deltaY * 0.7;
+}
+
+function applyDrum() {
+  const containerH = scrollWrap.offsetHeight || window.innerHeight;
+  const centerY    = containerH / 2 - itemH / 2;
+  // Normalize offset into [0, totalH)
+  const off = ((scrollCur % totalH) + totalH) % totalH;
+
+  const items = listEl.querySelectorAll('.proj-item');
+  let centeredIdx = 0, minDist = Infinity;
+
   items.forEach(el => {
-    const r = el.getBoundingClientRect();
-    const d = Math.abs(r.top + r.height / 2 - centerY);
-    if (d < bestD) { bestD = d; bestEl = el; bestIdx = parseInt(el.dataset.idx); }
-  });
-  items.forEach(el => el.classList.remove('is-scroll-active'));
-  bestEl?.classList.add('is-scroll-active');
-  setActiveThumb(bestIdx, false);
-}
+    const i = parseInt(el.dataset.idx);
+    // Distance from offset in circular space
+    let y = (i * itemH - off + totalH * 100) % totalH;
+    // Fold into [-totalH/2, totalH/2]
+    if (y > totalH / 2) y -= totalH;
+    // Offset so center item sits at centerY
+    el.style.transform = `translateY(${y + centerY}px)`;
 
-function setActiveThumb(idx, colored) {
-  thumbEls.forEach((t, i) => {
-    t.classList.toggle('is-active',  i === idx);
-    t.classList.toggle('is-colored', colored && i === idx);
+    const dist = Math.abs(y);  // 0 = perfectly centered
+    if (dist < minDist) { minDist = dist; centeredIdx = i; }
   });
+
+  if (hoveredIdx < 0) setActiveThumb(centeredIdx, false);
 }
 
 // ── Hover ─────────────────────────────────────────────
 function onHover(idx) {
   hoveredIdx = idx;
+  // Clear is-scroll-active so only 1 bar shows (CSS :hover handles the rest)
+  listEl?.querySelectorAll('.proj-item').forEach(el => el.classList.remove('is-scroll-active'));
   setActiveThumb(idx, true);
 }
-
 function onLeave() {
   hoveredIdx = -1;
   thumbEls.forEach(t => t.classList.remove('is-colored'));
-  updateByScroll();
+  applyDrum(); // re-marks is-scroll-active
+}
+
+// ── Thumbnail state ───────────────────────────────────
+function setActiveThumb(idx, colored) {
+  thumbEls.forEach((t, i) => {
+    t.classList.toggle('is-active',  i === idx);
+    t.classList.toggle('is-colored', colored && i === idx);
+  });
+  // Mark scroll-active item for bar — only when not hovering
+  if (!colored) {
+    listEl?.querySelectorAll('.proj-item').forEach(el => {
+      el.classList.toggle('is-scroll-active', parseInt(el.dataset.idx) === idx);
+    });
+  }
 }
 
 // ── Detail view ───────────────────────────────────────
@@ -211,30 +221,22 @@ function openDetail(i) {
     <div class="proj-detail-content">
       <div class="proj-tile-wrap"><canvas class="proj-tile-canvas"></canvas></div>
       <div class="proj-tile-wrap"><canvas class="proj-tile-canvas"></canvas></div>
-    </div>
-  `;
-
+    </div>`;
   detailView.classList.add('is-visible');
   listView.classList.add('is-hidden');
   document.getElementById('proj-back').addEventListener('click', closeDetail);
-
   requestAnimationFrame(() => {
     detailView.querySelectorAll('.proj-tile-wrap').forEach((wrap, wi) => {
       const c = wrap.querySelector('.proj-tile-canvas');
-      if (wi === 0) {
-        initTileReveal(c, p.grad);
-      } else {
-        new IntersectionObserver(entries => {
-          if (entries[0].isIntersecting && !c.dataset.done) {
-            c.dataset.done = '1';
-            initTileReveal(c, p.grad);
-          }
+      if (wi === 0) { initTileReveal(c, p.grad); }
+      else {
+        new IntersectionObserver(ent => {
+          if (ent[0].isIntersecting && !c.dataset.done) { c.dataset.done='1'; initTileReveal(c, p.grad); }
         }, { threshold: 0.15 }).observe(wrap);
       }
     });
   });
 }
-
 function closeDetail() {
   detailView.classList.remove('is-visible');
   listView.classList.remove('is-hidden');
@@ -263,6 +265,7 @@ export function hideProjects() {
   if (!pg) return;
   pg.classList.remove('is-visible');
   setTimeout(() => { pg.style.display = 'none'; }, 500);
+  if (drumRaf) { cancelAnimationFrame(drumRaf); drumRaf = null; }
   if (tileRaf) { cancelAnimationFrame(tileRaf); tileRaf = null; }
   if (document.body.dataset.page === 'projects') delete document.body.dataset.page;
   resumeLenis();
