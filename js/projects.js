@@ -29,8 +29,6 @@ let thumbEls   = [];     // one thumb per project (right, fixed)
 let loopH      = 0;      // height of one full copy
 let tileRaf    = null;
 let hoveredIdx = -1;
-let indThumb   = null;   // left indicator thumb element
-let indNum     = null;   // left indicator number element
 
 // ── Pixel-tile reveal ─────────────────────────────────
 const TILE = 20;
@@ -108,18 +106,17 @@ function buildList() {
   scrollEl.appendChild(ul);
   listView.appendChild(scrollEl);
 
-  // ── LEFT: scroll indicator ──
+  // ── LEFT: number indicator (6 items, active = cyan) ──
   const ind = document.createElement('div');
   ind.className = 'proj-indicator';
-  ind.innerHTML = `
-    <div class="proj-indicator__track">
-      <div class="proj-indicator__thumb" id="proj-ind-thumb"></div>
-    </div>
-    <span class="proj-indicator__num" id="proj-ind-num">01</span>
-  `;
+  PROJECTS.forEach((p, i) => {
+    const span = document.createElement('span');
+    span.className = 'proj-indicator__item' + (i === 0 ? ' is-active' : '');
+    span.textContent = p.num;
+    span.dataset.indIdx = i;
+    ind.appendChild(span);
+  });
   listView.appendChild(ind);
-  indThumb = ind.querySelector('#proj-ind-thumb');
-  indNum   = ind.querySelector('#proj-ind-num');
 
   // ── RIGHT: fixed thumbnail column ──
   const thumbCol = document.createElement('div');
@@ -142,13 +139,14 @@ function buildList() {
 
   listView.appendChild(thumbCol);
 
-  // ── Scroll setup after paint ──
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  // ── Scroll setup — wait for fonts so item heights are correct ──
+  const setupLoop = () => {
     loopH = scrollEl.scrollHeight / 3;
-    scrollEl.scrollTop = loopH; // start at middle copy
+    scrollEl.scrollTop = loopH;
     scrollEl.addEventListener('scroll', onScroll, { passive: true });
     updateByScroll();
-  }));
+  };
+  document.fonts.ready.then(() => requestAnimationFrame(setupLoop));
 }
 
 // ── Scroll → loop + active thumb ─────────────────────
@@ -181,14 +179,10 @@ function setActiveThumb(idx, colored) {
     t.classList.toggle('is-active',  i === idx);
     t.classList.toggle('is-colored', colored && i === idx);
   });
-  // Move left indicator
-  if (indThumb && indNum) {
-    const track = indThumb.parentElement;
-    const trackH = track.offsetHeight;
-    const pos = (idx / (N - 1)) * (trackH - 28); // 28 = thumb height
-    indThumb.style.top = pos + 'px';
-    indNum.textContent = PROJECTS[idx].num;
-  }
+  // Update left number indicator
+  listView?.querySelectorAll('.proj-indicator__item').forEach(el => {
+    el.classList.toggle('is-active', parseInt(el.dataset.indIdx) === idx);
+  });
 }
 
 // ── Hover ─────────────────────────────────────────────
