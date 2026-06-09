@@ -1596,8 +1596,8 @@ body[data-page="playground"] .cpop {
   transition: opacity 0.35s ease;
   user-select: none;
 }
-/* dimmed = still visible but receded */
-.proj-item.is-dimmed { opacity: 0.28; }
+/* dimmed — not used for hover anymore */
+.proj-item.is-dimmed { opacity: 1; }
 
 .proj-num {
   display: none; /* numbers shown on left indicator instead */
@@ -1616,9 +1616,6 @@ body[data-page="playground"] .cpop {
 .proj-item.is-hovered .proj-name {
   color: rgba(255,255,255,1);
   -webkit-text-stroke: 0px transparent;
-  text-shadow:
-    0 0 50px rgba(255,255,255,0.3),
-    0 0 100px rgba(255,255,255,0.1);
 }
 
 /* ── Left number indicator ─────────────────────── */

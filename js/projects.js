@@ -188,27 +188,14 @@ function setActiveThumb(idx, colored) {
 // ── Hover ─────────────────────────────────────────────
 function onHover(idx, el) {
   hoveredIdx = idx;
-  // Dim ALL items, then un-dim only this specific element
-  scrollEl?.querySelectorAll('.proj-item').forEach(item => {
-    item.classList.remove('is-hovered');
-    item.classList.add('is-dimmed');
-  });
-  el.classList.remove('is-dimmed');
+  scrollEl?.querySelectorAll('.proj-item').forEach(item => item.classList.remove('is-hovered'));
   el.classList.add('is-hovered');
-  // Thumb: highlight + show color
-  thumbEls.forEach((t, i) => {
-    t.classList.toggle('is-active',  i === idx);
-    t.classList.toggle('is-colored', i === idx);
-  });
   setActiveThumb(idx, true);
 }
 
 function onLeave() {
   hoveredIdx = -1;
-  scrollEl?.querySelectorAll('.proj-item').forEach(el => {
-    el.classList.remove('is-hovered', 'is-dimmed');
-  });
-  // Remove color, revert to scroll-based active
+  scrollEl?.querySelectorAll('.proj-item').forEach(el => el.classList.remove('is-hovered'));
   thumbEls.forEach(t => t.classList.remove('is-colored'));
   updateByScroll();
 }
