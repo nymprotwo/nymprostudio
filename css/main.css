@@ -1844,6 +1844,7 @@ body[data-page="playground"] .cpop {
   bottom: 3rem;
   right: 3rem;
   text-align: right;
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 .proj-detail-year {
   display: block;
@@ -1871,6 +1872,7 @@ body[data-page="playground"] .cpop {
   font: 400 10px/1 'Space Mono', monospace;
   letter-spacing: 0.12em;
   text-shadow: 0 0 8px var(--accent-glow);
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 .proj-scroll-line {
   width: 1px;
@@ -1898,4 +1900,26 @@ body[data-page="playground"] .cpop {
   display: block;
   cursor: crosshair;
   z-index: 2;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.proj-pixel-canvas.is-revealing {
+  opacity: 1;
+}
+
+/* Phase 1: scroll begins → fade out UI except title */
+.proj-detail-view.is-scrolling .proj-detail-meta,
+.proj-detail-view.is-scrolling .proj-scroll-hint,
+.proj-detail-view.is-scrolling .proj-back {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+}
+.proj-detail-view.is-scrolling .proj-scroll-hint {
+  transform: translateX(-50%) translateY(8px);
+}
+/* Title stays, shrinks slightly to center */
+.proj-detail-view.is-scrolling .proj-detail-title {
+  font-size: 14vw;
+  transition: font-size 0.6s ease;
 }

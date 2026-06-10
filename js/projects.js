@@ -436,11 +436,12 @@ function startPixelReveal(project) {
   const canvas = document.getElementById('proj-pixel-canvas');
   if (!canvas) return;
 
-  const PX      = 14;   // cell size px — square tiles only
-  const GAP     = 2;    // gap between cells
-  const HOVER_R = 180;  // hover effect radius
+  const PX      = 14;   // cell size px
+  const GAP     = 1;    // тонкий зазор
+  const CELL    = PX - GAP;
+  const HOVER_R = 160;  // radius of lens effect
+  const MAX_PUSH = 28;  // max pixel displacement in lens
 
-  // Canvas fills full detailView (inset:0)
   const W = canvas.offsetWidth  || window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
@@ -449,14 +450,19 @@ function startPixelReveal(project) {
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
 
-  // Per-cell scale for hover bulge effect (eased)
-  const cellScale = new Float32Array(COLS * ROWS);
+  // Per-cell eased displacement & scale
+  const cellDX = new Float32Array(COLS * ROWS);
+  const cellDY = new Float32Array(COLS * ROWS);
+
+  // revealTgt: 0→1 via scroll
+  // Phase 1 (0→0.18): UI fades, canvas stays hidden
+  // Phase 2 (0.18→1): tiles reveal bottom→top
+  const PHASE2_START = 0.18;
 
   let revealProg = 0, revealTgt = 0;
   let mX = -9999, mY = -9999;
   let tex = null;
 
-  // Build offscreen texture — cover-fit image to canvas size
   function buildTex(img) {
     const oc = document.createElement('canvas');
     oc.width = W; oc.height = H;
@@ -483,7 +489,6 @@ function startPixelReveal(project) {
     buildTex(null);
   }
 
-  // Wheel: capture at window level, faster response
   function onWheel(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -500,26 +505,41 @@ function startPixelReveal(project) {
   canvas.addEventListener('mouseleave', onML);
 
   const ctx = canvas.getContext('2d');
-
-  // Collect tiles that need hover scaling for second pass
   const hoverTiles = [];
 
   function loop() {
     gdRaf = requestAnimationFrame(loop);
     revealProg += (revealTgt - revealProg) * 0.10;
 
+    // ── Phase control ──
+    const isScrolling = revealTgt > 0.02;
+    if (isScrolling) {
+      detailView.classList.add('is-scrolling');
+    } else {
+      detailView.classList.remove('is-scrolling');
+    }
+
+    // Canvas visible only after phase 1
+    const canvasVisible = revealProg > PHASE2_START * 0.5;
+    canvas.classList.toggle('is-revealing', canvasVisible);
+
     ctx.clearRect(0, 0, W, H);
     if (!tex) return;
 
+    // Map revealProg into phase-2 space (0→1 for tile reveal)
+    const p2 = Math.max(0, Math.min(1, (revealProg - PHASE2_START) / (1 - PHASE2_START)));
+
     hoverTiles.length = 0;
 
-    // ── Pass 1: draw all revealed tiles clipped (base layer) ──
+    // ── Pass 1: base tiles ──
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
+
+        // Bottom rows (rowNorm→1) appear first (t→0)
         const rowNorm = row / Math.max(1, ROWS - 1);
         const t = 1 - rowNorm;
-        if (revealProg < t) { cellScale[ci] = 1; continue; }
+        if (p2 < t) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         const baseX = col * PX;
         const baseY = row * PX;
@@ -527,36 +547,47 @@ function startPixelReveal(project) {
         const ddx = mX - cx, ddy = mY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
 
-        let targScale = 1;
+        // Lens displacement: sine-wave pushes tiles outward from cursor
+        // max at ~40% of radius, zero at center and edge → natural dome
+        let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
-          const str = Math.pow(1 - dist / HOVER_R, 2.5);
-          targScale = 1 + str * 1.6; // lift up to 160% size
+          const norm = dist / HOVER_R;
+          const push = Math.sin(norm * Math.PI) * MAX_PUSH; // peaks at 50% radius
+          tDX = -(ddx / dist) * push; // push AWAY from cursor
+          tDY = -(ddy / dist) * push;
         }
-        cellScale[ci] += (targScale - cellScale[ci]) * 0.12;
-        const sc = cellScale[ci] || 1;
+        // Ease displacement
+        cellDX[ci] += (tDX - cellDX[ci]) * 0.14;
+        cellDY[ci] += (tDY - cellDY[ci]) * 0.14;
 
-        if (sc > 1.02) {
-          // defer to second pass so it renders on top
-          hoverTiles.push({ row, col, ci, baseX, baseY, sc, dist });
+        const dx = cellDX[ci], dy = cellDY[ci];
+        const hasDrift = (dx * dx + dy * dy) > 0.5;
+
+        if (hasDrift) {
+          hoverTiles.push({ baseX, baseY, dx, dy, dist });
         }
 
-        // Draw base tile (clipped, unscaled appearance)
+        // Draw base tile clipped
         ctx.save();
         ctx.beginPath();
-        ctx.rect(baseX + GAP / 2, baseY + GAP / 2, PX - GAP, PX - GAP);
+        ctx.rect(baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
         ctx.clip();
         ctx.drawImage(tex, baseX, baseY, PX, PX, baseX, baseY, PX, PX);
         ctx.restore();
       }
     }
 
-    // ── Pass 2: draw hover tiles scaled, no clip, farthest→closest ──
+    // ── Pass 2: displaced tiles — farthest first, closest on top ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
-    for (const { baseX, baseY, sc } of hoverTiles) {
-      const size = (PX - GAP) * sc;
-      const ox = baseX + PX / 2 - size / 2;
-      const oy = baseY + PX / 2 - size / 2;
-      ctx.drawImage(tex, baseX, baseY, PX, PX, ox, oy, size, size);
+    for (const { baseX, baseY, dx, dy } of hoverTiles) {
+      // Fill gap left by displaced tile with background
+      ctx.clearRect(baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+      // Draw tile at displaced position — no clip so it overlaps neighbours
+      ctx.drawImage(
+        tex,
+        baseX, baseY, PX, PX,
+        baseX + dx, baseY + dy, CELL, CELL
+      );
     }
   }
 
@@ -567,6 +598,8 @@ function startPixelReveal(project) {
     window.removeEventListener('wheel', onWheel, { capture: true });
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
+    detailView.classList.remove('is-scrolling');
+    canvas.classList.remove('is-revealing');
   };
 }
 function closeDetail() {
