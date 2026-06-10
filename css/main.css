@@ -148,10 +148,11 @@ body[data-page="projects"] #stage {
 }
 
 /* Detail view — fully opaque, no mask, no background elements */
-body[data-page="projects-detail"] #stage        { z-index: 2; }  /* mask hidden behind overlay */
-body[data-page="projects-detail"] #page-projects { background: #06050A; } /* solid black */
+body[data-page="projects-detail"] #stage         { z-index: 2; }
+body[data-page="projects-detail"] #page-projects { background: #06050A; }
 body[data-page="projects-detail"] #page-projects::before { opacity: 0; }
-body[data-page="projects-detail"] .proj-back    { z-index: 980; } /* above everything */
+body[data-page="projects-detail"] .header        { opacity: 0; pointer-events: none; }
+body[data-page="projects-detail"] .proj-back     { z-index: 980; }
 
 #stage canvas {
   display: block;
@@ -1855,19 +1856,21 @@ body[data-page="playground"] .cpop {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: rgba(255,255,255,0.3);
+  color: var(--accent);
   font: 400 10px/1 'Space Mono', monospace;
   letter-spacing: 0.12em;
+  text-shadow: 0 0 8px var(--accent-glow);
 }
 .proj-scroll-line {
   width: 1px;
   height: 40px;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  box-shadow: 0 0 6px var(--accent-glow);
   animation: scrollPulse 1.5s ease-in-out infinite;
 }
 @keyframes scrollPulse {
-  0%,100% { opacity: 0.3; }
-  50%      { opacity: 0.9; }
+  0%,100% { opacity: 0.4; transform: scaleY(0.8); }
+  50%      { opacity: 1;   transform: scaleY(1); }
 }
 
 /* ── Tile reveal canvases ──────────────────────── */
