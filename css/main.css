@@ -1888,12 +1888,10 @@ body[data-page="playground"] .cpop {
 /* Canvas pixel window — fixed position in lower screen */
 .proj-pixel-canvas {
   position: absolute;
-  left: 5vw;
-  right: 5vw;
-  bottom: 5vh;
-  width: 90vw;
-  height: 58vh;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: block;
   cursor: crosshair;
-  border-radius: 3px;
+  z-index: 5; /* above hero text — covers title as tiles fill screen */
 }

@@ -436,40 +436,40 @@ function startPixelReveal(project) {
   const canvas = document.getElementById('proj-pixel-canvas');
   if (!canvas) return;
 
-  const PX      = 12;   // cell size px
+  const PX      = 14;   // cell size px — square tiles only
   const GAP     = 2;    // gap between cells
-  const HOVER_R = 160;
-  const MAX_D   = 40;
+  const HOVER_R = 180;  // hover effect radius
 
-  // Canvas dimensions from CSS layout (absolute positioned)
-  const W = canvas.offsetWidth  || Math.round(window.innerWidth  * 0.90);
-  const H = canvas.offsetHeight || Math.round(window.innerHeight * 0.58);
+  // Canvas fills full detailView (inset:0)
+  const W = canvas.offsetWidth  || window.innerWidth;
+  const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
   canvas.height = H;
 
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
-  const cellDisp = new Float32Array(COLS * ROWS * 2); // x,y per cell
+
+  // Per-cell scale for hover bulge effect (eased)
+  const cellScale = new Float32Array(COLS * ROWS);
 
   let revealProg = 0, revealTgt = 0;
-  let texScrollY = 0, texScrollTgt = 0;
   let mX = -9999, mY = -9999;
   let tex = null;
-  const TEX_H = H * 2.5; // texture taller than canvas → image scrolls inside
 
-  // Build offscreen texture
+  // Build offscreen texture — cover-fit image to canvas size
   function buildTex(img) {
-    const oc  = document.createElement('canvas');
-    oc.width  = W; oc.height = Math.round(TEX_H);
-    const c2  = oc.getContext('2d');
+    const oc = document.createElement('canvas');
+    oc.width = W; oc.height = H;
+    const c2 = oc.getContext('2d');
     if (img) {
-      const s = Math.max(W / img.naturalWidth, TEX_H / img.naturalHeight);
-      c2.drawImage(img, (W - img.naturalWidth * s) / 2, 0, img.naturalWidth * s, img.naturalHeight * s);
+      const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const sw = img.naturalWidth * s, sh = img.naturalHeight * s;
+      c2.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
     } else {
       const colors = project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f'];
-      const g = c2.createLinearGradient(0, 0, 0, TEX_H);
+      const g = c2.createLinearGradient(0, 0, 0, H);
       colors.forEach((c, i) => g.addColorStop(i / Math.max(1, colors.length - 1), c));
-      c2.fillStyle = g; c2.fillRect(0, 0, W, TEX_H);
+      c2.fillStyle = g; c2.fillRect(0, 0, W, H);
     }
     tex = oc;
   }
@@ -483,15 +483,12 @@ function startPixelReveal(project) {
     buildTex(null);
   }
 
-  // Wheel on WINDOW level — intercept before Lenis touches it
+  // Wheel: capture at window level, faster response
   function onWheel(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    const delta = e.deltaY * 0.0012;
-    revealTgt    = Math.max(0, Math.min(1, revealTgt + delta));
-    texScrollTgt = revealTgt * (TEX_H - H);
+    revealTgt = Math.max(0, Math.min(1, revealTgt + e.deltaY * 0.003));
   }
-  // Capture on window beats Lenis — only one handler needed
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
   function onMM(e) {
@@ -506,46 +503,56 @@ function startPixelReveal(project) {
 
   function loop() {
     gdRaf = requestAnimationFrame(loop);
-    revealProg += (revealTgt    - revealProg)  * 0.07;
-    texScrollY += (texScrollTgt - texScrollY)  * 0.07;
+    revealProg += (revealTgt - revealProg) * 0.10; // faster easing
 
     ctx.clearRect(0, 0, W, H);
     if (!tex) return;
 
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
-        const ci = (row * COLS + col) * 2;
+        const ci = row * COLS + col;
 
-        // Wave: bottom rows rise first (row ROWS-1 = bottom → delay 0)
-        const rowNorm = row / Math.max(1, ROWS - 1); // 0=top, 1=bottom
-        const delay   = (1 - rowNorm) * 0.38;        // top rows delayed most
-        const local   = Math.max(0, Math.min(1, (revealProg - delay) / (1 - delay)));
-        const ease    = 1 - Math.pow(1 - local, 3);
-        const riseY   = (1 - ease) * (H + PX * 4);   // start below canvas
+        // ── Reveal: bottom rows appear first, threshold-based ──
+        // rowNorm: 0=top row, 1=bottom row
+        const rowNorm   = (ROWS - 1 - row) / Math.max(1, ROWS - 1); // 1=bottom, 0=top
+        const threshold = rowNorm; // bottom row threshold=1 → appears first when prog>0
+        // Actually: bottom row (rowNorm=1) should appear when prog is LOW
+        // So: threshold = 1 - rowNorm → bottom row threshold=0 (appears immediately)
+        const t = 1 - rowNorm; // 0=bottom row, 1=top row
+        if (revealProg < t) continue; // tile not yet visible = stays transparent
 
-        // Hover lens
-        const cx = col * PX + PX / 2, cy = row * PX + PX / 2;
-        const dx = cx - mX, dy = cy - mY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        let tDx = 0, tDy = 0;
+        const baseX = col * PX;
+        const baseY = row * PX;
+
+        // ── Hover bulge: tiles near cursor scale UP toward cursor ──
+        const cx = baseX + PX / 2, cy = baseY + PX / 2;
+        const ddx = mX - cx, ddy = mY - cy; // direction TOWARD cursor
+        const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+        let targScale = 1;
         if (dist < HOVER_R && dist > 0) {
-          const s = Math.pow(1 - dist / HOVER_R, 2);
-          tDx = (dx / dist) * s * MAX_D;
-          tDy = (dy / dist) * s * MAX_D;
+          const str = Math.pow(1 - dist / HOVER_R, 2);
+          targScale = 1 + str * 0.55; // tiles bulge UP to 55% larger near cursor
         }
-        cellDisp[ci]     += (tDx - cellDisp[ci])     * 0.12;
-        cellDisp[ci + 1] += (tDy - cellDisp[ci + 1]) * 0.12;
+        // Ease per-cell scale
+        cellScale[ci] += (targScale - cellScale[ci]) * 0.14;
+        const sc = cellScale[ci] || 1;
 
-        const destX = col * PX + cellDisp[ci];
-        const destY = row * PX + cellDisp[ci + 1] - riseY;
+        // Draw tile scaled from its center (creates dome/bulge illusion)
+        const cellW = (PX - GAP) * sc;
+        const cellH = (PX - GAP) * sc;
+        const offX  = (cellW - (PX - GAP)) / 2;
+        const offY  = (cellH - (PX - GAP)) / 2;
 
+        // Clip to cell slot so scaled tiles don't bleed into neighbours
         ctx.save();
         ctx.beginPath();
-        ctx.rect(col * PX + GAP / 2, row * PX + GAP / 2, PX - GAP, PX - GAP);
+        ctx.rect(baseX + GAP / 2, baseY + GAP / 2, PX - GAP, PX - GAP);
         ctx.clip();
-        ctx.drawImage(tex,
-          col * PX, row * PX + texScrollY, PX, PX,
-          destX,    destY,                 PX, PX);
+        ctx.drawImage(
+          tex,
+          baseX, baseY, PX, PX,           // source: correct slice of texture
+          baseX - offX, baseY - offY, cellW, cellH  // dest: scaled from center
+        );
         ctx.restore();
       }
     }
