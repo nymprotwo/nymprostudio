@@ -1828,6 +1828,7 @@ body[data-page="playground"] .cpop {
   align-items: flex-start;
   padding: 0 6vw;
   position: relative;
+  z-index: 10;
 }
 
 .proj-detail-title {
