@@ -59,7 +59,7 @@ function gradToCanvas(gradStr, w, h) {
 let gdRaf = null;   // grid distortion RAF handle
 let gdCleanup = null; // cleanup fn stored for closeDetail
 
-function initGridDistortion(canvas, project) {
+function initGridDistortion(canvas, project, _dv) { // _dv unused — uses outer detailView
   if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
   if (gdCleanup) { gdCleanup(); gdCleanup = null; }
 
@@ -102,10 +102,12 @@ function initGridDistortion(canvas, project) {
   }
   resize();
 
-  // Wheel on detail view drives progress
-  function onWheel(e) {
-    e.preventDefault();
-    scrollTgt = Math.max(0, Math.min(1, scrollTgt + e.deltaY * 0.0012));
+  // Scroll on detail view drives progress (canvas is sticky)
+  function onScroll() {
+    const heroH = window.innerHeight;
+    // Drive 0→1 over 2 viewport heights of scroll after hero
+    const raw = Math.max(0, detailView.scrollTop - heroH);
+    scrollTgt = Math.min(1, raw / (window.innerHeight * 2));
   }
   function onMM(e) {
     const r = canvas.getBoundingClientRect();
@@ -114,7 +116,7 @@ function initGridDistortion(canvas, project) {
   }
   function onML() { mX = -9999; mY = -9999; }
 
-  detailView.addEventListener('wheel', onWheel, { passive: false });
+  detailView.addEventListener('scroll', onScroll, { passive: true });
   canvas.addEventListener('mousemove', onMM);
   canvas.addEventListener('mouseleave', onML);
 
@@ -175,7 +177,7 @@ function initGridDistortion(canvas, project) {
 
   gdCleanup = () => {
     if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
-    detailView.removeEventListener('wheel', onWheel);
+    detailView.removeEventListener('scroll', onScroll);
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
   };
@@ -389,13 +391,15 @@ function openDetail(i) {
       </div>
       <div class="proj-scroll-hint"><span>SCROLL</span><div class="proj-scroll-line"></div></div>
     </div>
-    <canvas class="proj-grid-canvas"></canvas>`;
+    <div class="proj-grid-section">
+      <canvas class="proj-grid-canvas"></canvas>
+    </div>`;
   detailView.classList.add('is-visible');
   listView.classList.add('is-hidden');
   document.getElementById('proj-back').addEventListener('click', closeDetail);
   requestAnimationFrame(() => {
     const canvas = detailView.querySelector('.proj-grid-canvas');
-    if (canvas) initGridDistortion(canvas, p);
+    if (canvas) initGridDistortion(canvas, p, detailView);
   });
 }
 function closeDetail() {
