@@ -483,13 +483,17 @@ function startPixelReveal(project) {
     buildTex(null);
   }
 
-  // Wheel: no DOM scroll — drives reveal + image scroll
+  // Wheel on WINDOW level — intercept before Lenis touches it
   function onWheel(e) {
     e.preventDefault();
-    const delta = e.deltaY * 0.001;
+    e.stopImmediatePropagation();
+    const delta = e.deltaY * 0.0012;
     revealTgt    = Math.max(0, Math.min(1, revealTgt + delta));
     texScrollTgt = revealTgt * (TEX_H - H);
   }
+  // Must be on window with capture=true to beat Lenis
+  window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+
   function onMM(e) {
     const r = canvas.getBoundingClientRect();
     mX = e.clientX - r.left; mY = e.clientY - r.top;
@@ -553,7 +557,7 @@ function startPixelReveal(project) {
 
   gdCleanup = () => {
     if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
-    detailView.removeEventListener('wheel', onWheel);
+    window.removeEventListener('wheel', onWheel, { capture: true });
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
   };
