@@ -70,5 +70,11 @@ export async function runSplash() {
     await sleep(220);
   }
 
+  // Show "hello stranger" 1 second after READY finishes
+  setTimeout(() => {
+    const hello = document.querySelector('.splash__hello');
+    if (hello) hello.classList.add('is-visible');
+  }, 1000);
+
   await sleep(500);
 }

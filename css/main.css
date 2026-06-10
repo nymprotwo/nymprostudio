@@ -99,19 +99,21 @@ button { font: inherit; background: none; border: none; color: inherit; cursor: 
 .splash__hello {
   margin-top: 2.2rem;
   color: #ffffff;
-  font-family: var(--font-mono);
-  font-size: clamp(1.1rem, 2.8vw, 1.5rem);
-  letter-spacing: 0.18em;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+  letter-spacing: 0.12em;
   opacity: 0;
-  animation: hello-appear 0.6s ease forwards;
-  animation-delay: 3.2s; /* after all 3 lines load */
+  transition: none;
+}
+.splash__hello.is-visible {
+  animation: hello-appear 0.7s ease forwards;
 }
 
 @keyframes hello-appear {
   0%   { opacity: 0; }
-  40%  { opacity: 1; }
-  60%  { opacity: 0.4; }
-  80%  { opacity: 1; }
+  35%  { opacity: 1; }
+  55%  { opacity: 0.3; }
+  75%  { opacity: 1; }
   100% { opacity: 1; }
 }
 
