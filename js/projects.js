@@ -36,31 +36,149 @@ let scrollTgt   = 0;     // target offset (wheel accumulates here)
 let drumRaf     = null;
 let hoveredIdx  = -1;
 
-// ── Pixel-tile reveal ─────────────────────────────────
-const TILE = 20;
-function initTileReveal(canvas, grad) {
-  const W = canvas.offsetWidth  || 600;
-  const H = canvas.offsetHeight || 380;
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
-  const img = document.createElement('canvas');
-  img.width = W; img.height = H;
-  const ic = img.getContext('2d');
-  ic.fillStyle = grad; ic.fillRect(0,0,W,H);
-  for (let y=0;y<H;y+=3){ic.fillStyle=`rgba(255,255,255,${.015+Math.random()*.03})`;ic.fillRect(0,y,W,1);}
-  const tiles=[];
-  for(let r=0;r*TILE<H;r++) for(let c=0;c*TILE<W;c++) tiles.push([c*TILE,r*TILE]);
-  for(let i=tiles.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[tiles[i],tiles[j]]=[tiles[j],tiles[i]];}
-  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
-  let n=0; const BATCH=Math.max(3,Math.ceil(tiles.length/55));
-  if(tileRaf){cancelAnimationFrame(tileRaf);tileRaf=null;}
-  function step(){
-    if(n>=tiles.length)return;
-    const end=Math.min(n+BATCH,tiles.length);
-    for(;n<end;n++){const[tx,ty]=tiles[n];const tw=Math.min(TILE-1,W-tx),th=Math.min(TILE-1,H-ty);ctx.drawImage(img,tx,ty,tw,th,tx,ty,tw,th);}
-    tileRaf=requestAnimationFrame(step);
+// ── Grid distortion effect ────────────────────────────
+// Canvas grid of tiles, scroll-driven rise + hover lens displacement
+
+function gradToCanvas(gradStr, w, h) {
+  const oc = document.createElement('canvas');
+  oc.width = w; oc.height = h;
+  const octx = oc.getContext('2d');
+  const colors = (gradStr.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f']);
+  const grd = octx.createLinearGradient(0, 0, w, h);
+  colors.forEach((c, i) => grd.addColorStop(i / Math.max(1, colors.length - 1), c));
+  octx.fillStyle = grd;
+  octx.fillRect(0, 0, w, h);
+  // Subtle scanlines
+  for (let y = 0; y < h; y += 4) {
+    octx.fillStyle = `rgba(0,0,0,${0.12 + Math.random() * 0.06})`;
+    octx.fillRect(0, y, w, 1);
   }
-  tileRaf=requestAnimationFrame(step);
+  return oc;
+}
+
+let gdRaf = null;   // grid distortion RAF handle
+let gdCleanup = null; // cleanup fn stored for closeDetail
+
+function initGridDistortion(canvas, project) {
+  if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
+  if (gdCleanup) { gdCleanup(); gdCleanup = null; }
+
+  const COLS = 32;
+  const GAP  = 2;   // px gap between tiles
+  const HOVER_R   = 170;
+  const MAX_DISP  = 60;
+
+  let W, H, tileW, tileH, ROWS;
+  let scrollProg  = 0;
+  let scrollTgt   = 0;
+  let mX = -9999, mY = -9999;
+  let tex = null;  // offscreen canvas used as texture
+
+  function resize() {
+    W = canvas.parentElement ? canvas.parentElement.offsetWidth : window.innerWidth;
+    H = window.innerHeight;
+    canvas.width  = W;
+    canvas.height = H;
+    tileW = W / COLS;
+    tileH = tileW; // square tiles
+    ROWS  = Math.ceil(H / tileH) + 1;
+    // Rebuild texture at new size if needed
+    if (project.img) {
+      const im = new Image();
+      im.onload = () => {
+        const oc = document.createElement('canvas');
+        oc.width = W; oc.height = H;
+        const oc2 = oc.getContext('2d');
+        // Cover-fit image
+        const scale = Math.max(W / im.naturalWidth, H / im.naturalHeight);
+        const sw = im.naturalWidth * scale, sh = im.naturalHeight * scale;
+        oc2.drawImage(im, (W - sw) / 2, (H - sh) / 2, sw, sh);
+        tex = oc;
+      };
+      im.src = project.img;
+    } else {
+      tex = gradToCanvas(project.grad, W, H);
+    }
+  }
+  resize();
+
+  // Wheel on detail view drives progress
+  function onWheel(e) {
+    e.preventDefault();
+    scrollTgt = Math.max(0, Math.min(1, scrollTgt + e.deltaY * 0.0012));
+  }
+  function onMM(e) {
+    const r = canvas.getBoundingClientRect();
+    mX = e.clientX - r.left;
+    mY = e.clientY - r.top;
+  }
+  function onML() { mX = -9999; mY = -9999; }
+
+  detailView.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('mousemove', onMM);
+  canvas.addEventListener('mouseleave', onML);
+
+  const ctx = canvas.getContext('2d');
+
+  function drawFrameClean() {
+    gdRaf = requestAnimationFrame(drawFrameClean);
+    scrollProg += (scrollTgt - scrollProg) * 0.07;
+    ctx.clearRect(0, 0, W, H);
+    if (!tex) return;
+
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const baseX = col * tileW;
+        const baseY = row * tileH;
+
+        // Wave delay by column distance from center
+        const norm  = Math.abs(col - (COLS - 1) / 2) / ((COLS - 1) / 2);
+        const delay = norm * 0.42;
+        const local = Math.max(0, Math.min(1, (scrollProg - delay) / (1 - delay)));
+        const ease  = 1 - Math.pow(1 - local, 3);
+        const riseY = (1 - ease) * (H + tileH * 2);
+
+        // Lens displacement
+        const cx = baseX + tileW / 2, cy = baseY + tileH / 2;
+        const dx = cx - mX, dy = cy - mY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        let dispX = 0, dispY = 0;
+        if (dist < HOVER_R && dist > 0) {
+          const str = Math.pow(1 - dist / HOVER_R, 2);
+          dispX = (dx / dist) * str * MAX_DISP;
+          dispY = (dy / dist) * str * MAX_DISP;
+        }
+
+        // Final tile top-left in screen space
+        const finalX = baseX + dispX;
+        const finalY = baseY + dispY - riseY;
+        const tW = tileW - GAP, tH = tileH - GAP;
+
+        ctx.save();
+        // Clip to grid cell slot
+        ctx.beginPath();
+        ctx.rect(baseX + GAP / 2, baseY + GAP / 2, tW, tH);
+        ctx.clip();
+        // Draw tile: source is fixed (baseX,baseY in texture), dest is displaced
+        ctx.drawImage(
+          tex,
+          baseX, baseY, tileW, tileH,   // source slice matches grid position
+          finalX, finalY, tileW, tileH  // destination at displaced location
+        );
+        ctx.restore();
+      }
+    }
+  }
+
+  // Cancel the first drawFrame and use clean version
+  gdRaf = requestAnimationFrame(drawFrameClean);
+
+  gdCleanup = () => {
+    if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
+    detailView.removeEventListener('wheel', onWheel);
+    canvas.removeEventListener('mousemove', onMM);
+    canvas.removeEventListener('mouseleave', onML);
+  };
 }
 
 // ── Build list ────────────────────────────────────────
@@ -271,26 +389,17 @@ function openDetail(i) {
       </div>
       <div class="proj-scroll-hint"><span>SCROLL</span><div class="proj-scroll-line"></div></div>
     </div>
-    <div class="proj-detail-content">
-      <div class="proj-tile-wrap"><canvas class="proj-tile-canvas"></canvas></div>
-      <div class="proj-tile-wrap"><canvas class="proj-tile-canvas"></canvas></div>
-    </div>`;
+    <canvas class="proj-grid-canvas"></canvas>`;
   detailView.classList.add('is-visible');
   listView.classList.add('is-hidden');
   document.getElementById('proj-back').addEventListener('click', closeDetail);
   requestAnimationFrame(() => {
-    detailView.querySelectorAll('.proj-tile-wrap').forEach((wrap, wi) => {
-      const c = wrap.querySelector('.proj-tile-canvas');
-      if (wi === 0) { initTileReveal(c, p.grad); }
-      else {
-        new IntersectionObserver(ent => {
-          if (ent[0].isIntersecting && !c.dataset.done) { c.dataset.done='1'; initTileReveal(c, p.grad); }
-        }, { threshold: 0.15 }).observe(wrap);
-      }
-    });
+    const canvas = detailView.querySelector('.proj-grid-canvas');
+    if (canvas) initGridDistortion(canvas, p);
   });
 }
 function closeDetail() {
+  if (gdCleanup) { gdCleanup(); gdCleanup = null; }
   detailView.classList.remove('is-visible');
   listView.classList.remove('is-hidden');
   if (tileRaf) { cancelAnimationFrame(tileRaf); tileRaf = null; }

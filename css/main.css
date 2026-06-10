@@ -1874,24 +1874,10 @@ body[data-page="playground"] .cpop {
 }
 
 /* ── Tile reveal canvases ──────────────────────── */
-.proj-detail-content {
-  padding: 5vw 6vw 15vh;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3vw;
-}
-
-.proj-tile-wrap {
-  aspect-ratio: 16/10;
-  position: relative;
-  overflow: hidden;
-  border-radius: 2px;
-}
-
-.proj-tile-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+/* Grid distortion canvas */
+.proj-grid-canvas {
   display: block;
+  width: 100%;
+  height: 100vh;
+  cursor: none;
 }
