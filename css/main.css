@@ -1903,21 +1903,11 @@ body[data-page="playground"] .cpop {
   position: relative;
 }
 
-.proj-window-img {
-  width: 100%;
+.proj-pixel-canvas {
   display: block;
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: top left;
-  will-change: transform;
-}
-
-.proj-window-grad {
-  position: absolute;
-  inset: 0;
   width: 100%;
-  height: 200%;
+  height: 100%;
+  cursor: crosshair;
 }
 
 /* Spacer provides scroll distance */

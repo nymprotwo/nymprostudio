@@ -408,7 +408,6 @@ function setActiveThumb(idx, colored) {
 function openDetail(i) {
   const p = PROJECTS[i];
   document.body.dataset.page = 'projects-detail';
-  const imgSrc = p.img || '';
   detailView.innerHTML = `
     <button class="proj-back" id="proj-back">← BACK</button>
     <div class="proj-detail-hero">
@@ -421,37 +420,180 @@ function openDetail(i) {
     </div>
     <div class="proj-window-wrap">
       <div class="proj-window">
-        ${imgSrc
-          ? `<img class="proj-window-img" src="${imgSrc}" alt="${p.title}">`
-          : `<div class="proj-window-grad" style="background:${p.grad}"></div>`
-        }
+        <canvas class="proj-pixel-canvas"></canvas>
       </div>
     </div>
     <div class="proj-window-spacer"></div>`;
   detailView.classList.add('is-visible');
   listView.classList.add('is-hidden');
   document.getElementById('proj-back').addEventListener('click', closeDetail);
+  requestAnimationFrame(() => startPixelReveal(p));
+}
 
-  // Scroll inside the window: move image up as user scrolls
-  const windowEl = detailView.querySelector('.proj-window');
-  const imgEl    = detailView.querySelector('.proj-window-img, .proj-window-grad');
-  if (!windowEl || !imgEl) return;
+// ── Pixel grid reveal (yutaabe-style) ─────────────────
+// Canvas 2D replication of the GLSL pixel-grid shader from yutaabe.com
+function startPixelReveal(project) {
+  const canvas = detailView.querySelector('.proj-pixel-canvas');
+  const win    = detailView.querySelector('.proj-window');
+  if (!canvas || !win) return;
 
-  function onDetailScroll() {
-    const heroH   = window.innerHeight;
-    const scrolled = Math.max(0, detailView.scrollTop - heroH);
-    const spacerH  = detailView.querySelector('.proj-window-spacer')?.offsetHeight || 1;
-    const progress = Math.min(1, scrolled / spacerH);
-    // How far the image can travel: imageHeight - windowHeight
-    const travel = imgEl.offsetHeight - windowEl.offsetHeight;
-    imgEl.style.transform = `translateY(${-progress * Math.max(0, travel)}px)`;
+  const PX   = 14;   // pixel cell size (matches yutaabe's pixelSize=10 scaled up)
+  const GAP  = 2;    // gap between cells (from smoothstep 0.07 in shader)
+  const HOVER_R   = 180;
+  const MAX_DISP  = 45;
+
+  let W = 0, H = 0;
+  let revealProg = 0, revealTgt = 0;  // 0=hidden 1=fully revealed
+  let mX = -9999, mY = -9999;
+  // Per-cell hover displacement (eased independently)
+  let cellDisp = null;  // Float32Array [cellCount * 2]
+  let COLS = 0, ROWS = 0;
+
+  // Offscreen texture (full-size image drawn to match canvas)
+  let tex = null;
+  let texScrollY = 0;     // current image scroll offset
+  let texScrollTgt = 0;
+
+  function setup() {
+    W = win.offsetWidth  || window.innerWidth;
+    H = win.offsetHeight || Math.round(window.innerHeight * 0.6);
+    canvas.width  = W;
+    canvas.height = H;
+    COLS = Math.ceil(W / PX);
+    ROWS = Math.ceil(H / PX);
+    cellDisp = new Float32Array(COLS * ROWS * 2);
   }
 
-  detailView.addEventListener('scroll', onDetailScroll, { passive: true });
-  // store cleanup
+  function buildTex(img) {
+    // Texture is TEX_MULT × canvas height so the image scrolls inside the window
+    const TEX_H = Math.round(H * 2.5);
+    const oc  = document.createElement('canvas');
+    oc.width  = W; oc.height = TEX_H;
+    const ctx = oc.getContext('2d');
+    if (img) {
+      const scale = Math.max(W / img.naturalWidth, TEX_H / img.naturalHeight);
+      const sw = img.naturalWidth * scale, sh = img.naturalHeight * scale;
+      ctx.drawImage(img, (W - sw) / 2, 0, sw, sh);
+    } else {
+      const colors = (project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f']);
+      const grd = ctx.createLinearGradient(0, 0, W, TEX_H);
+      colors.forEach((c, idx) => grd.addColorStop(idx / Math.max(1, colors.length - 1), c));
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, W, TEX_H);
+    }
+    tex = oc;
+    // Store total scrollable height of texture
+    tex._scrollH = TEX_H - H;
+  }
+
+  setup();
+
+  // Load image
+  if (project.img) {
+    const im = new Image();
+    im.onload  = () => buildTex(im);
+    im.onerror = () => buildTex(null);
+    im.src = project.img;
+  } else {
+    buildTex(null);
+  }
+
+  // Scroll: reveal progress + image scroll inside texture
+  function onScroll() {
+    const heroH   = window.innerHeight;
+    const scrolled = Math.max(0, detailView.scrollTop - heroH);
+    const spacerH  = detailView.querySelector('.proj-window-spacer')?.offsetHeight || (window.innerHeight * 3);
+    const t = Math.min(1, scrolled / spacerH);
+    revealTgt  = t;
+    // Image scrolls through texture as progress increases
+    texScrollTgt = t * (tex?._scrollH || 0);
+  }
+
+  function onMM(e) {
+    const r = canvas.getBoundingClientRect();
+    mX = e.clientX - r.left;
+    mY = e.clientY - r.top;
+  }
+  function onML() { mX = -9999; mY = -9999; }
+
+  detailView.addEventListener('scroll', onScroll, { passive: true });
+  canvas.addEventListener('mousemove', onMM);
+  canvas.addEventListener('mouseleave', onML);
+
+  const ctx = canvas.getContext('2d');
+
+  function loop() {
+    gdRaf = requestAnimationFrame(loop);
+    // Ease globals
+    revealProg += (revealTgt  - revealProg)  * 0.06;
+    texScrollY += (texScrollTgt - texScrollY) * 0.06;
+
+    ctx.clearRect(0, 0, W, H);
+    if (!tex) return;
+
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const ci = (row * COLS + col) * 2;
+
+        // ── Reveal wave: bottom rows come in first ──
+        // rowNorm: 0=bottom 1=top (inverted so bottom reveals first)
+        const rowNorm = 1 - row / Math.max(1, ROWS - 1); // 0=top, 1=bottom
+        const delay   = rowNorm * 0.4;  // top rows have bigger delay
+        const local   = Math.max(0, Math.min(1, (revealProg - delay) / (1 - delay)));
+        const ease    = 1 - Math.pow(1 - local, 3);
+
+        // Cells start below canvas and rise up
+        const riseOffset = (1 - ease) * (H + PX * 3);
+
+        // ── Hover displacement ──
+        const cellCX = col * PX + PX / 2;
+        const cellCY = row * PX + PX / 2;
+        const dx = cellCX - mX, dy = cellCY - mY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        let targDispX = 0, targDispY = 0;
+        if (dist < HOVER_R && dist > 0) {
+          const str = Math.pow(1 - dist / HOVER_R, 2);
+          targDispX = (dx / dist) * str * MAX_DISP;
+          targDispY = (dy / dist) * str * MAX_DISP;
+        }
+        // Ease per-cell displacement
+        cellDisp[ci]     += (targDispX - cellDisp[ci])     * 0.12;
+        cellDisp[ci + 1] += (targDispY - cellDisp[ci + 1]) * 0.12;
+
+        // Final cell position
+        const destX = col * PX + cellDisp[ci];
+        const destY = row * PX + cellDisp[ci + 1] - riseOffset;
+        const cellW = PX - GAP;
+        const cellH = PX - GAP;
+
+        // ── Draw pixel cell ──
+        // Clip to grid slot so displaced cells don't bleed into neighbors
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(col * PX + GAP / 2, row * PX + GAP / 2, cellW, cellH);
+        ctx.clip();
+
+        // Source from texture — image scrolls vertically
+        ctx.drawImage(
+          tex,
+          col * PX,                    // src X
+          row * PX + texScrollY,       // src Y (parallax)
+          PX, PX,
+          destX, destY,
+          PX, PX
+        );
+        ctx.restore();
+      }
+    }
+  }
+
+  gdRaf = requestAnimationFrame(loop);
+
   gdCleanup = () => {
-    detailView.removeEventListener('scroll', onDetailScroll);
     if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
+    detailView.removeEventListener('scroll', onScroll);
+    canvas.removeEventListener('mousemove', onMM);
+    canvas.removeEventListener('mouseleave', onML);
   };
 }
 function closeDetail() {
