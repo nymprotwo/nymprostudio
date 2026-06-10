@@ -407,7 +407,8 @@ function setActiveThumb(idx, colored) {
 // ── Detail view ───────────────────────────────────────
 function openDetail(i) {
   const p = PROJECTS[i];
-  document.body.dataset.page = 'projects-detail'; // no mask on detail
+  document.body.dataset.page = 'projects-detail';
+  const imgSrc = p.img || '';
   detailView.innerHTML = `
     <button class="proj-back" id="proj-back">← BACK</button>
     <div class="proj-detail-hero">
@@ -418,16 +419,40 @@ function openDetail(i) {
       </div>
       <div class="proj-scroll-hint"><span>SCROLL</span><div class="proj-scroll-line"></div></div>
     </div>
-    <div class="proj-grid-section">
-      <canvas class="proj-grid-canvas"></canvas>
-    </div>`;
+    <div class="proj-window-wrap">
+      <div class="proj-window">
+        ${imgSrc
+          ? `<img class="proj-window-img" src="${imgSrc}" alt="${p.title}">`
+          : `<div class="proj-window-grad" style="background:${p.grad}"></div>`
+        }
+      </div>
+    </div>
+    <div class="proj-window-spacer"></div>`;
   detailView.classList.add('is-visible');
   listView.classList.add('is-hidden');
   document.getElementById('proj-back').addEventListener('click', closeDetail);
-  requestAnimationFrame(() => {
-    const canvas = detailView.querySelector('.proj-grid-canvas');
-    if (canvas) initGridDistortion(canvas, p, detailView);
-  });
+
+  // Scroll inside the window: move image up as user scrolls
+  const windowEl = detailView.querySelector('.proj-window');
+  const imgEl    = detailView.querySelector('.proj-window-img, .proj-window-grad');
+  if (!windowEl || !imgEl) return;
+
+  function onDetailScroll() {
+    const heroH   = window.innerHeight;
+    const scrolled = Math.max(0, detailView.scrollTop - heroH);
+    const spacerH  = detailView.querySelector('.proj-window-spacer')?.offsetHeight || 1;
+    const progress = Math.min(1, scrolled / spacerH);
+    // How far the image can travel: imageHeight - windowHeight
+    const travel = imgEl.offsetHeight - windowEl.offsetHeight;
+    imgEl.style.transform = `translateY(${-progress * Math.max(0, travel)}px)`;
+  }
+
+  detailView.addEventListener('scroll', onDetailScroll, { passive: true });
+  // store cleanup
+  gdCleanup = () => {
+    detailView.removeEventListener('scroll', onDetailScroll);
+    if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
+  };
 }
 function closeDetail() {
   if (gdCleanup) { gdCleanup(); gdCleanup = null; }
