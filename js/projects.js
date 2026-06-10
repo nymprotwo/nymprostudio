@@ -125,11 +125,8 @@ function initGridDistortion(canvas, project, _dv) {
     requestAnimationFrame(() => buildTex(null));
   }
 
-  // Wheel drives progress — NO DOM scroll, pure JS
-  function onWheel(e) {
-    e.preventDefault();
-    scrollTgt = Math.max(0, Math.min(1, scrollTgt + e.deltaY * 0.0008));
-  }
+  // Scroll drives tile progress based on canvas position in viewport
+  function onWheel(e) { /* unused — driven by scroll */ }
   function onMM(e) {
     const r = canvas.getBoundingClientRect();
     mX = e.clientX - r.left;
@@ -137,7 +134,14 @@ function initGridDistortion(canvas, project, _dv) {
   }
   function onML() { mX = -9999; mY = -9999; }
 
-  detailView.addEventListener('wheel', onWheel, { passive: false });
+  // Drive tile progress from scroll: 0→1 as canvas scrolls into view
+  function onScroll() {
+    const rect = canvas.getBoundingClientRect();
+    // progress 0 when canvas just enters bottom of screen, 1 when fully visible
+    const entered = window.innerHeight - rect.top;
+    scrollTgt = Math.max(0, Math.min(1, entered / (window.innerHeight * 0.9)));
+  }
+  detailView.addEventListener('scroll', onScroll, { passive: true });
   canvas.addEventListener('mousemove', onMM);
   canvas.addEventListener('mouseleave', onML);
 
@@ -200,7 +204,7 @@ function initGridDistortion(canvas, project, _dv) {
 
   gdCleanup = () => {
     if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
-    detailView.removeEventListener('wheel', onWheel);
+    detailView.removeEventListener('scroll', onScroll);
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
   };
