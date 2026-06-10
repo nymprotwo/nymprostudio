@@ -501,60 +501,62 @@ function startPixelReveal(project) {
 
   const ctx = canvas.getContext('2d');
 
+  // Collect tiles that need hover scaling for second pass
+  const hoverTiles = [];
+
   function loop() {
     gdRaf = requestAnimationFrame(loop);
-    revealProg += (revealTgt - revealProg) * 0.10; // faster easing
+    revealProg += (revealTgt - revealProg) * 0.10;
 
     ctx.clearRect(0, 0, W, H);
     if (!tex) return;
 
+    hoverTiles.length = 0;
+
+    // ── Pass 1: draw all revealed tiles clipped (base layer) ──
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
-
-        // ── Reveal: bottom rows appear first (снизу вверх) ──
-        // row=0 is TOP, row=ROWS-1 is BOTTOM
-        // rowNorm: 0=top, 1=bottom
         const rowNorm = row / Math.max(1, ROWS - 1);
-        // threshold: bottom row (rowNorm=1) → t=0 (appears first at low progress)
-        //            top row (rowNorm=0)    → t=1 (appears last)
         const t = 1 - rowNorm;
-        if (revealProg < t) continue; // not yet visible
+        if (revealProg < t) { cellScale[ci] = 1; continue; }
 
         const baseX = col * PX;
         const baseY = row * PX;
-
-        // ── Hover bulge: tiles near cursor scale UP toward cursor ──
         const cx = baseX + PX / 2, cy = baseY + PX / 2;
-        const ddx = mX - cx, ddy = mY - cy; // direction TOWARD cursor
+        const ddx = mX - cx, ddy = mY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+
         let targScale = 1;
         if (dist < HOVER_R && dist > 0) {
-          const str = Math.pow(1 - dist / HOVER_R, 2);
-          targScale = 1 + str * 0.55; // tiles bulge UP to 55% larger near cursor
+          const str = Math.pow(1 - dist / HOVER_R, 2.5);
+          targScale = 1 + str * 1.6; // lift up to 160% size
         }
-        // Ease per-cell scale
-        cellScale[ci] += (targScale - cellScale[ci]) * 0.14;
+        cellScale[ci] += (targScale - cellScale[ci]) * 0.12;
         const sc = cellScale[ci] || 1;
 
-        // Draw tile scaled from its center (creates dome/bulge illusion)
-        const cellW = (PX - GAP) * sc;
-        const cellH = (PX - GAP) * sc;
-        const offX  = (cellW - (PX - GAP)) / 2;
-        const offY  = (cellH - (PX - GAP)) / 2;
+        if (sc > 1.02) {
+          // defer to second pass so it renders on top
+          hoverTiles.push({ row, col, ci, baseX, baseY, sc, dist });
+        }
 
-        // Clip to cell slot so scaled tiles don't bleed into neighbours
+        // Draw base tile (clipped, unscaled appearance)
         ctx.save();
         ctx.beginPath();
         ctx.rect(baseX + GAP / 2, baseY + GAP / 2, PX - GAP, PX - GAP);
         ctx.clip();
-        ctx.drawImage(
-          tex,
-          baseX, baseY, PX, PX,           // source: correct slice of texture
-          baseX - offX, baseY - offY, cellW, cellH  // dest: scaled from center
-        );
+        ctx.drawImage(tex, baseX, baseY, PX, PX, baseX, baseY, PX, PX);
         ctx.restore();
       }
+    }
+
+    // ── Pass 2: draw hover tiles scaled, no clip, farthest→closest ──
+    hoverTiles.sort((a, b) => b.dist - a.dist);
+    for (const { baseX, baseY, sc } of hoverTiles) {
+      const size = (PX - GAP) * sc;
+      const ox = baseX + PX / 2 - size / 2;
+      const oy = baseY + PX / 2 - size / 2;
+      ctx.drawImage(tex, baseX, baseY, PX, PX, ox, oy, size, size);
     }
   }
 
