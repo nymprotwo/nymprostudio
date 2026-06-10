@@ -1885,32 +1885,38 @@ body[data-page="playground"] .cpop {
 
 /* ── Tile reveal canvases ──────────────────────── */
 /* ── Project site window ── */
+/* Window wraps sticky so it stays on screen */
 .proj-window-wrap {
-  /* sticky so window stays on screen while spacer scrolls */
   position: sticky;
-  top: 8vh;
+  top: 10vh;
   padding: 0 6vw;
   box-sizing: border-box;
-  z-index: 1;
 }
 
+/* The visible viewport into the project screenshot */
 .proj-window {
   width: 100%;
-  height: 58vh;
+  height: 55vh;
   overflow: hidden;
   border-radius: 4px;
   background: #0a0a0a;
   position: relative;
 }
 
-.proj-pixel-canvas {
-  display: block;
+/* Screenshot image — full width, translates upward on scroll */
+.proj-window-img {
   width: 100%;
-  height: 100%;
-  cursor: crosshair;
+  display: block;
+  will-change: transform;
 }
 
-/* Spacer provides scroll distance */
+.proj-window-grad {
+  width: 100%;
+  height: 300vh;
+  will-change: transform;
+}
+
+/* Spacer provides scroll distance — image scrolls through window */
 .proj-window-spacer {
   height: 300vh;
 }

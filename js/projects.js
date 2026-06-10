@@ -408,6 +408,8 @@ function setActiveThumb(idx, colored) {
 function openDetail(i) {
   const p = PROJECTS[i];
   document.body.dataset.page = 'projects-detail';
+  const imgSrc = p.img || '';
+
   detailView.innerHTML = `
     <button class="proj-back" id="proj-back">← BACK</button>
     <div class="proj-detail-hero">
@@ -419,15 +421,37 @@ function openDetail(i) {
       <div class="proj-scroll-hint"><span>SCROLL</span><div class="proj-scroll-line"></div></div>
     </div>
     <div class="proj-window-wrap">
-      <div class="proj-window">
-        <canvas class="proj-pixel-canvas"></canvas>
+      <div class="proj-window" id="proj-win">
+        ${imgSrc
+          ? `<img id="proj-win-img" class="proj-window-img" src="${imgSrc}">`
+          : `<div id="proj-win-img" class="proj-window-grad" style="background:${p.grad}"></div>`}
       </div>
     </div>
-    <div class="proj-window-spacer"></div>`;
+    <div class="proj-window-spacer" id="proj-spacer"></div>`;
+
   detailView.classList.add('is-visible');
   listView.classList.add('is-hidden');
   document.getElementById('proj-back').addEventListener('click', closeDetail);
-  requestAnimationFrame(() => startPixelReveal(p));
+
+  // Image scrolls inside the fixed window as user scrolls
+  const winEl  = document.getElementById('proj-win');
+  const imgEl  = document.getElementById('proj-win-img');
+
+  function onDetailScroll() {
+    const heroH    = window.innerHeight;
+    const scrolled = Math.max(0, detailView.scrollTop - heroH);
+    const spacerH  = document.getElementById('proj-spacer')?.offsetHeight || 1;
+    const progress = Math.min(1, scrolled / spacerH);
+    const maxTravel = Math.max(0, (imgEl.offsetHeight || 0) - (winEl.offsetHeight || 1));
+    imgEl.style.transform = `translateY(${-progress * maxTravel}px)`;
+  }
+
+  detailView.addEventListener('scroll', onDetailScroll, { passive: true });
+
+  gdCleanup = () => {
+    detailView.removeEventListener('scroll', onDetailScroll);
+    if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
+  };
 }
 
 // ── Pixel grid reveal (yutaabe-style) ─────────────────
