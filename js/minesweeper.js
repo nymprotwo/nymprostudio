@@ -485,6 +485,7 @@ export function showSweep(){
   if(!rafId) rafId=requestAnimationFrame(loop);
   pauseLenis();
   document.body.dataset.page='sweep';
+  document.getElementById('shift-toggle')?.setAttribute('aria-pressed','true');
 }
 
 export function hideSweep(){
@@ -500,5 +501,6 @@ export function hideSweep(){
   canvas?.removeEventListener('mouseleave',  onMouseLeave);
   window.removeEventListener('resize',       onResize);
   if(document.body.dataset.page==='sweep') delete document.body.dataset.page;
+  document.getElementById('shift-toggle')?.setAttribute('aria-pressed','false');
   resumeLenis();
 }

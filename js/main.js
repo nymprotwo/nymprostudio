@@ -18,7 +18,7 @@ import { initScrollEffects } from './scroll-effects.js?v=36';
 import { initFx } from './fx-switcher.js?v=33';
 import { initSkillsPreview } from './skills-preview.js?v=7';
 import { initContactPopup } from './contact-popup.js?v=2';
-import { initSweep, showSweep, hideSweep } from './minesweeper.js?v=7';
+import { initSweep, showSweep, hideSweep } from './minesweeper.js?v=8';
 import { initPlayground, showPlayground, hidePlayground, dismissPlayground } from './playground.js?v=62';
 import { initProjects, showProjects, hideProjects } from './projects.js?v=18';
 
@@ -57,7 +57,10 @@ registerExitHandler(() => {
 // Playground toggle
 document.getElementById('playground-toggle')?.addEventListener('click', showPlayground);
 document.getElementById('projects-toggle')?.addEventListener('click', showProjects);
-document.getElementById('shift-toggle')?.addEventListener('click', showSweep);
+document.getElementById('shift-toggle')?.addEventListener('click', () => {
+  if (document.body.dataset.page === 'sweep') hideSweep();
+  else showSweep();
+});
 document.getElementById('sh-close')?.addEventListener('click', hideShift);
 document.getElementById('pg-close')?.addEventListener('click', hidePlayground);
 document.getElementById('sweep-close')?.addEventListener('click', hideSweep);
