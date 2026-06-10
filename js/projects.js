@@ -491,7 +491,7 @@ function startPixelReveal(project) {
     revealTgt    = Math.max(0, Math.min(1, revealTgt + delta));
     texScrollTgt = revealTgt * (TEX_H - H);
   }
-  // Must be on window with capture=true to beat Lenis
+  // Capture on window beats Lenis — only one handler needed
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
   function onMM(e) {
@@ -499,8 +499,6 @@ function startPixelReveal(project) {
     mX = e.clientX - r.left; mY = e.clientY - r.top;
   }
   function onML() { mX = -9999; mY = -9999; }
-
-  detailView.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('mousemove', onMM);
   canvas.addEventListener('mouseleave', onML);
 
