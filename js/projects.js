@@ -454,6 +454,10 @@ function startPixelReveal(project) {
   const cellDX = new Float32Array(COLS * ROWS);
   const cellDY = new Float32Array(COLS * ROWS);
 
+  // Per-tile random noise for chaotic lens (seeded once)
+  const tileNoise = new Float32Array(COLS * ROWS);
+  for (let i = 0; i < COLS * ROWS; i++) tileNoise[i] = 0.3 + Math.random() * 0.7;
+
   // revealTgt: 0→1 via scroll
   // Phase 1 (0→0.18): UI fades, canvas stays hidden
   // Phase 2 (0.18→1): tiles reveal bottom→top
@@ -511,19 +515,13 @@ function startPixelReveal(project) {
     gdRaf = requestAnimationFrame(loop);
     revealProg += (revealTgt - revealProg) * 0.10;
 
-    // ── Phase control ──
-    const isScrolling = revealTgt > 0.02;
-    if (isScrolling) {
-      detailView.classList.add('is-scrolling');
-    } else {
-      detailView.classList.remove('is-scrolling');
-    }
-
-    // Canvas visible only after phase 1
+    // Canvas visible only once scroll begins
     const canvasVisible = revealProg > PHASE2_START * 0.5;
     canvas.classList.toggle('is-revealing', canvasVisible);
 
-    ctx.clearRect(0, 0, W, H);
+    // ── Fill background so gaps are opaque (title beneath is not visible) ──
+    ctx.fillStyle = '#06050A';
+    ctx.fillRect(0, 0, W, H);
     if (!tex) return;
 
     // Map revealProg into phase-2 space (0→1 for tile reveal)
@@ -536,7 +534,7 @@ function startPixelReveal(project) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
 
-        // Bottom rows (rowNorm→1) appear first (t→0)
+        // Bottom rows appear first
         const rowNorm = row / Math.max(1, ROWS - 1);
         const t = 1 - rowNorm;
         if (p2 < t) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
@@ -547,47 +545,33 @@ function startPixelReveal(project) {
         const ddx = mX - cx, ddy = mY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
 
-        // Lens displacement: sine-wave pushes tiles outward from cursor
-        // max at ~40% of radius, zero at center and edge → natural dome
+        // ── Chaotic lens: noise per tile breaks perfect circle ──
         let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
           const norm = dist / HOVER_R;
-          const push = Math.sin(norm * Math.PI) * MAX_PUSH; // peaks at 50% radius
-          tDX = -(ddx / dist) * push; // push AWAY from cursor
+          // Push strength: peaks near cursor, falls off outward — no perfect ring
+          const str = Math.pow(1 - norm, 1.2) * tileNoise[ci];
+          const push = str * MAX_PUSH;
+          tDX = -(ddx / dist) * push;
           tDY = -(ddy / dist) * push;
         }
-        // Ease displacement
-        cellDX[ci] += (tDX - cellDX[ci]) * 0.14;
-        cellDY[ci] += (tDY - cellDY[ci]) * 0.14;
+        cellDX[ci] += (tDX - cellDX[ci]) * 0.13;
+        cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
 
         const dx = cellDX[ci], dy = cellDY[ci];
-        const hasDrift = (dx * dx + dy * dy) > 0.5;
-
-        if (hasDrift) {
+        if (dx * dx + dy * dy > 1) {
           hoverTiles.push({ baseX, baseY, dx, dy, dist });
         }
 
-        // Draw base tile clipped
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
-        ctx.clip();
-        ctx.drawImage(tex, baseX, baseY, PX, PX, baseX, baseY, PX, PX);
-        ctx.restore();
+        // Draw base tile
+        ctx.drawImage(tex, baseX, baseY, PX, PX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
       }
     }
 
-    // ── Pass 2: displaced tiles — farthest first, closest on top ──
+    // ── Pass 2: displaced tiles on top, farthest first ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
     for (const { baseX, baseY, dx, dy } of hoverTiles) {
-      // Fill gap left by displaced tile with background
-      ctx.clearRect(baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
-      // Draw tile at displaced position — no clip so it overlaps neighbours
-      ctx.drawImage(
-        tex,
-        baseX, baseY, PX, PX,
-        baseX + dx, baseY + dy, CELL, CELL
-      );
+      ctx.drawImage(tex, baseX, baseY, PX, PX, baseX + dx + GAP / 2, baseY + dy + GAP / 2, CELL, CELL);
     }
   }
 
@@ -598,7 +582,6 @@ function startPixelReveal(project) {
     window.removeEventListener('wheel', onWheel, { capture: true });
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
-    detailView.classList.remove('is-scrolling');
     canvas.classList.remove('is-revealing');
   };
 }

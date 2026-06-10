@@ -1829,7 +1829,6 @@ body[data-page="playground"] .cpop {
   padding: 0 6vw;
   position: relative;
   z-index: 1;
-  transition: opacity 0.5s ease;
 }
 
 .proj-detail-title {
@@ -1908,8 +1907,4 @@ body[data-page="playground"] .cpop {
   opacity: 1;
 }
 
-/* Phase 1: scroll begins → весь hero исчезает */
-.proj-detail-view.is-scrolling .proj-detail-hero {
-  opacity: 0;
-  pointer-events: none;
-}
+/* Hero всегда виден — канвас закрывает его тайлами поверх */
