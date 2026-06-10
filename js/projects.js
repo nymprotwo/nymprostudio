@@ -408,7 +408,6 @@ function setActiveThumb(idx, colored) {
 function openDetail(i) {
   const p = PROJECTS[i];
   document.body.dataset.page = 'projects-detail';
-  const imgSrc = p.img || '';
 
   detailView.innerHTML = `
     <button class="proj-back" id="proj-back">← BACK</button>
@@ -420,99 +419,61 @@ function openDetail(i) {
       </div>
       <div class="proj-scroll-hint"><span>SCROLL</span><div class="proj-scroll-line"></div></div>
     </div>
-    <div class="proj-window-wrap">
-      <div class="proj-window" id="proj-win">
-        ${imgSrc
-          ? `<img id="proj-win-img" class="proj-window-img" src="${imgSrc}">`
-          : `<div id="proj-win-img" class="proj-window-grad" style="background:${p.grad}"></div>`}
-      </div>
-    </div>
-    <div class="proj-window-spacer" id="proj-spacer"></div>`;
+    <canvas class="proj-pixel-canvas" id="proj-pixel-canvas"></canvas>`;
 
   detailView.classList.add('is-visible');
   listView.classList.add('is-hidden');
   document.getElementById('proj-back').addEventListener('click', closeDetail);
 
-  // Image scrolls inside the fixed window as user scrolls
-  const winEl  = document.getElementById('proj-win');
-  const imgEl  = document.getElementById('proj-win-img');
-
-  function onDetailScroll() {
-    const heroH    = window.innerHeight;
-    const scrolled = Math.max(0, detailView.scrollTop - heroH);
-    const spacerH  = document.getElementById('proj-spacer')?.offsetHeight || 1;
-    const progress = Math.min(1, scrolled / spacerH);
-    const maxTravel = Math.max(0, (imgEl.offsetHeight || 0) - (winEl.offsetHeight || 1));
-    imgEl.style.transform = `translateY(${-progress * maxTravel}px)`;
-  }
-
-  detailView.addEventListener('scroll', onDetailScroll, { passive: true });
-
-  gdCleanup = () => {
-    detailView.removeEventListener('scroll', onDetailScroll);
-    if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
-  };
+  // Wait for layout then start pixel reveal
+  setTimeout(() => startPixelReveal(p), 50);
 }
 
 // ── Pixel grid reveal (yutaabe-style) ─────────────────
-// Canvas 2D replication of the GLSL pixel-grid shader from yutaabe.com
 function startPixelReveal(project) {
-  const canvas = detailView.querySelector('.proj-pixel-canvas');
-  const win    = detailView.querySelector('.proj-window');
-  if (!canvas || !win) return;
+  if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
 
-  const PX   = 14;   // pixel cell size (matches yutaabe's pixelSize=10 scaled up)
-  const GAP  = 2;    // gap between cells (from smoothstep 0.07 in shader)
-  const HOVER_R   = 180;
-  const MAX_DISP  = 45;
+  const canvas = document.getElementById('proj-pixel-canvas');
+  if (!canvas) return;
 
-  let W = 0, H = 0;
-  let revealProg = 0, revealTgt = 0;  // 0=hidden 1=fully revealed
+  const PX      = 12;   // cell size px
+  const GAP     = 2;    // gap between cells
+  const HOVER_R = 160;
+  const MAX_D   = 40;
+
+  // Canvas dimensions from CSS layout (absolute positioned)
+  const W = canvas.offsetWidth  || Math.round(window.innerWidth  * 0.90);
+  const H = canvas.offsetHeight || Math.round(window.innerHeight * 0.58);
+  canvas.width  = W;
+  canvas.height = H;
+
+  const COLS = Math.ceil(W / PX);
+  const ROWS = Math.ceil(H / PX);
+  const cellDisp = new Float32Array(COLS * ROWS * 2); // x,y per cell
+
+  let revealProg = 0, revealTgt = 0;
+  let texScrollY = 0, texScrollTgt = 0;
   let mX = -9999, mY = -9999;
-  // Per-cell hover displacement (eased independently)
-  let cellDisp = null;  // Float32Array [cellCount * 2]
-  let COLS = 0, ROWS = 0;
-
-  // Offscreen texture (full-size image drawn to match canvas)
   let tex = null;
-  let texScrollY = 0;     // current image scroll offset
-  let texScrollTgt = 0;
+  const TEX_H = H * 2.5; // texture taller than canvas → image scrolls inside
 
-  function setup() {
-    W = win.offsetWidth  || window.innerWidth;
-    H = win.offsetHeight || Math.round(window.innerHeight * 0.6);
-    canvas.width  = W;
-    canvas.height = H;
-    COLS = Math.ceil(W / PX);
-    ROWS = Math.ceil(H / PX);
-    cellDisp = new Float32Array(COLS * ROWS * 2);
-  }
-
+  // Build offscreen texture
   function buildTex(img) {
-    // Texture is TEX_MULT × canvas height so the image scrolls inside the window
-    const TEX_H = Math.round(H * 2.5);
     const oc  = document.createElement('canvas');
-    oc.width  = W; oc.height = TEX_H;
-    const ctx = oc.getContext('2d');
+    oc.width  = W; oc.height = Math.round(TEX_H);
+    const c2  = oc.getContext('2d');
     if (img) {
-      const scale = Math.max(W / img.naturalWidth, TEX_H / img.naturalHeight);
-      const sw = img.naturalWidth * scale, sh = img.naturalHeight * scale;
-      ctx.drawImage(img, (W - sw) / 2, 0, sw, sh);
+      const s = Math.max(W / img.naturalWidth, TEX_H / img.naturalHeight);
+      c2.drawImage(img, (W - img.naturalWidth * s) / 2, 0, img.naturalWidth * s, img.naturalHeight * s);
     } else {
-      const colors = (project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f']);
-      const grd = ctx.createLinearGradient(0, 0, W, TEX_H);
-      colors.forEach((c, idx) => grd.addColorStop(idx / Math.max(1, colors.length - 1), c));
-      ctx.fillStyle = grd;
-      ctx.fillRect(0, 0, W, TEX_H);
+      const colors = project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f'];
+      const g = c2.createLinearGradient(0, 0, 0, TEX_H);
+      colors.forEach((c, i) => g.addColorStop(i / Math.max(1, colors.length - 1), c));
+      c2.fillStyle = g; c2.fillRect(0, 0, W, TEX_H);
     }
     tex = oc;
-    // Store total scrollable height of texture
-    tex._scrollH = TEX_H - H;
   }
 
-  setup();
-
-  // Load image
   if (project.img) {
     const im = new Image();
     im.onload  = () => buildTex(im);
@@ -522,25 +483,20 @@ function startPixelReveal(project) {
     buildTex(null);
   }
 
-  // Scroll: reveal progress + image scroll inside texture
-  function onScroll() {
-    const heroH   = window.innerHeight;
-    const scrolled = Math.max(0, detailView.scrollTop - heroH);
-    const spacerH  = detailView.querySelector('.proj-window-spacer')?.offsetHeight || (window.innerHeight * 3);
-    const t = Math.min(1, scrolled / spacerH);
-    revealTgt  = t;
-    // Image scrolls through texture as progress increases
-    texScrollTgt = t * (tex?._scrollH || 0);
+  // Wheel: no DOM scroll — drives reveal + image scroll
+  function onWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY * 0.001;
+    revealTgt    = Math.max(0, Math.min(1, revealTgt + delta));
+    texScrollTgt = revealTgt * (TEX_H - H);
   }
-
   function onMM(e) {
     const r = canvas.getBoundingClientRect();
-    mX = e.clientX - r.left;
-    mY = e.clientY - r.top;
+    mX = e.clientX - r.left; mY = e.clientY - r.top;
   }
   function onML() { mX = -9999; mY = -9999; }
 
-  detailView.addEventListener('scroll', onScroll, { passive: true });
+  detailView.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('mousemove', onMM);
   canvas.addEventListener('mouseleave', onML);
 
@@ -548,9 +504,8 @@ function startPixelReveal(project) {
 
   function loop() {
     gdRaf = requestAnimationFrame(loop);
-    // Ease globals
-    revealProg += (revealTgt  - revealProg)  * 0.06;
-    texScrollY += (texScrollTgt - texScrollY) * 0.06;
+    revealProg += (revealTgt    - revealProg)  * 0.07;
+    texScrollY += (texScrollTgt - texScrollY)  * 0.07;
 
     ctx.clearRect(0, 0, W, H);
     if (!tex) return;
@@ -559,53 +514,36 @@ function startPixelReveal(project) {
       for (let col = 0; col < COLS; col++) {
         const ci = (row * COLS + col) * 2;
 
-        // ── Reveal wave: bottom rows come in first ──
-        // rowNorm: 0=bottom 1=top (inverted so bottom reveals first)
-        const rowNorm = 1 - row / Math.max(1, ROWS - 1); // 0=top, 1=bottom
-        const delay   = rowNorm * 0.4;  // top rows have bigger delay
+        // Wave: bottom rows rise first (row ROWS-1 = bottom → delay 0)
+        const rowNorm = row / Math.max(1, ROWS - 1); // 0=top, 1=bottom
+        const delay   = (1 - rowNorm) * 0.38;        // top rows delayed most
         const local   = Math.max(0, Math.min(1, (revealProg - delay) / (1 - delay)));
         const ease    = 1 - Math.pow(1 - local, 3);
+        const riseY   = (1 - ease) * (H + PX * 4);   // start below canvas
 
-        // Cells start below canvas and rise up
-        const riseOffset = (1 - ease) * (H + PX * 3);
-
-        // ── Hover displacement ──
-        const cellCX = col * PX + PX / 2;
-        const cellCY = row * PX + PX / 2;
-        const dx = cellCX - mX, dy = cellCY - mY;
+        // Hover lens
+        const cx = col * PX + PX / 2, cy = row * PX + PX / 2;
+        const dx = cx - mX, dy = cy - mY;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        let targDispX = 0, targDispY = 0;
+        let tDx = 0, tDy = 0;
         if (dist < HOVER_R && dist > 0) {
-          const str = Math.pow(1 - dist / HOVER_R, 2);
-          targDispX = (dx / dist) * str * MAX_DISP;
-          targDispY = (dy / dist) * str * MAX_DISP;
+          const s = Math.pow(1 - dist / HOVER_R, 2);
+          tDx = (dx / dist) * s * MAX_D;
+          tDy = (dy / dist) * s * MAX_D;
         }
-        // Ease per-cell displacement
-        cellDisp[ci]     += (targDispX - cellDisp[ci])     * 0.12;
-        cellDisp[ci + 1] += (targDispY - cellDisp[ci + 1]) * 0.12;
+        cellDisp[ci]     += (tDx - cellDisp[ci])     * 0.12;
+        cellDisp[ci + 1] += (tDy - cellDisp[ci + 1]) * 0.12;
 
-        // Final cell position
         const destX = col * PX + cellDisp[ci];
-        const destY = row * PX + cellDisp[ci + 1] - riseOffset;
-        const cellW = PX - GAP;
-        const cellH = PX - GAP;
+        const destY = row * PX + cellDisp[ci + 1] - riseY;
 
-        // ── Draw pixel cell ──
-        // Clip to grid slot so displaced cells don't bleed into neighbors
         ctx.save();
         ctx.beginPath();
-        ctx.rect(col * PX + GAP / 2, row * PX + GAP / 2, cellW, cellH);
+        ctx.rect(col * PX + GAP / 2, row * PX + GAP / 2, PX - GAP, PX - GAP);
         ctx.clip();
-
-        // Source from texture — image scrolls vertically
-        ctx.drawImage(
-          tex,
-          col * PX,                    // src X
-          row * PX + texScrollY,       // src Y (parallax)
-          PX, PX,
-          destX, destY,
-          PX, PX
-        );
+        ctx.drawImage(tex,
+          col * PX, row * PX + texScrollY, PX, PX,
+          destX,    destY,                 PX, PX);
         ctx.restore();
       }
     }
@@ -615,7 +553,7 @@ function startPixelReveal(project) {
 
   gdCleanup = () => {
     if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
-    detailView.removeEventListener('scroll', onScroll);
+    detailView.removeEventListener('wheel', onWheel);
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
   };

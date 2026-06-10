@@ -1795,7 +1795,7 @@ body[data-page="playground"] .cpop {
 .proj-detail-view {
   position: absolute;
   inset: 0;
-  overflow-y: auto;
+  overflow: hidden;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.4s ease;
@@ -1885,38 +1885,15 @@ body[data-page="playground"] .cpop {
 
 /* ── Tile reveal canvases ──────────────────────── */
 /* ── Project site window ── */
-/* Window wraps sticky so it stays on screen */
-.proj-window-wrap {
-  position: sticky;
-  top: 10vh;
-  padding: 0 6vw;
-  box-sizing: border-box;
-}
-
-/* The visible viewport into the project screenshot */
-.proj-window {
-  width: 100%;
-  height: 55vh;
-  overflow: hidden;
-  border-radius: 4px;
-  background: #0a0a0a;
-  position: relative;
-}
-
-/* Screenshot image — full width, translates upward on scroll */
-.proj-window-img {
-  width: 100%;
+/* Canvas pixel window — fixed position in lower screen */
+.proj-pixel-canvas {
+  position: absolute;
+  left: 5vw;
+  right: 5vw;
+  bottom: 5vh;
+  width: 90vw;
+  height: 58vh;
   display: block;
-  will-change: transform;
-}
-
-.proj-window-grad {
-  width: 100%;
-  height: 300vh;
-  will-change: transform;
-}
-
-/* Spacer provides scroll distance — image scrolls through window */
-.proj-window-spacer {
-  height: 300vh;
+  cursor: crosshair;
+  border-radius: 3px;
 }
