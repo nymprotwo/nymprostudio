@@ -153,7 +153,11 @@ body[data-page="projects"] #stage {
 body[data-page="projects-detail"] #stage         { z-index: 2; }
 body[data-page="projects-detail"] #page-projects { background: #06050A; }
 body[data-page="projects-detail"] #page-projects::before { opacity: 0; }
-body[data-page="projects-detail"] .header        { opacity: 0 !important; pointer-events: none !important; animation: none !important; }
+/* Header скрывается только после начала скролла */
+body.detail-scrolling .header { opacity: 0 !important; pointer-events: none !important; animation: none !important; transition: opacity 0.4s ease !important; }
+/* Scroll hint и meta пропадают при скролле */
+body.detail-scrolling .proj-scroll-hint,
+body.detail-scrolling .proj-detail-meta { opacity: 0; pointer-events: none; }
 body[data-page="projects-detail"] .proj-back     { z-index: 980; }
 
 #stage canvas {
@@ -1907,4 +1911,3 @@ body[data-page="playground"] .cpop {
   opacity: 1;
 }
 
-/* Hero всегда виден — канвас закрывает его тайлами поверх */

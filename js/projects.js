@@ -436,11 +436,11 @@ function startPixelReveal(project) {
   const canvas = document.getElementById('proj-pixel-canvas');
   if (!canvas) return;
 
-  const PX      = 14;   // cell size px
-  const GAP     = 1;    // тонкий зазор
+  const PX      = 14;
+  const GAP     = 1;
   const CELL    = PX - GAP;
-  const HOVER_R = 160;  // radius of lens effect
-  const MAX_PUSH = 28;  // max pixel displacement in lens
+  const HOVER_R = 150;
+  const MAX_PUSH = 22;
 
   const W = canvas.offsetWidth  || window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
@@ -450,18 +450,16 @@ function startPixelReveal(project) {
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
 
-  // Per-cell eased displacement & scale
+  // Per-cell eased displacement for lens
   const cellDX = new Float32Array(COLS * ROWS);
   const cellDY = new Float32Array(COLS * ROWS);
 
-  // Per-tile random noise for chaotic lens (seeded once)
+  // Per-tile noise — seeded once, breaks perfect symmetry
   const tileNoise = new Float32Array(COLS * ROWS);
-  for (let i = 0; i < COLS * ROWS; i++) tileNoise[i] = 0.3 + Math.random() * 0.7;
+  for (let i = 0; i < COLS * ROWS; i++) tileNoise[i] = 0.4 + Math.random() * 0.6;
 
-  // revealTgt: 0→1 via scroll
-  // Phase 1 (0→0.18): UI fades, canvas stays hidden
-  // Phase 2 (0.18→1): tiles reveal bottom→top
-  const PHASE2_START = 0.18;
+  // Phase 1 (0→0.15): header/hints fade. Phase 2 (0.15→1): tiles reveal
+  const PHASE2_START = 0.15;
 
   let revealProg = 0, revealTgt = 0;
   let mX = -9999, mY = -9999;
@@ -511,34 +509,32 @@ function startPixelReveal(project) {
   const ctx = canvas.getContext('2d');
   const hoverTiles = [];
 
-  // Per-cell eased scale for lens
-  const cellScale = new Float32Array(COLS * ROWS).fill(1);
-
   function loop() {
     gdRaf = requestAnimationFrame(loop);
     revealProg += (revealTgt - revealProg) * 0.10;
 
-    // Map revealProg → phase-2 progress
     const p2 = Math.max(0, Math.min(1, (revealProg - PHASE2_START) / (1 - PHASE2_START)));
 
-    // Canvas only appears when first tiles start drawing
+    // Phase 1: header/hints fade via body class
+    const scrolling = revealTgt > 0.02;
+    document.body.classList.toggle('detail-scrolling', scrolling);
+
+    // Canvas transparent bg — hero shows through unrevealed areas
+    ctx.clearRect(0, 0, W, H);
+
+    // Canvas element visible only when tiles start appearing
     canvas.classList.toggle('is-revealing', p2 > 0.005);
 
-    // Opaque background — gaps between tiles don't show through to title
-    ctx.fillStyle = '#06050A';
-    ctx.fillRect(0, 0, W, H);
     if (!tex) return;
 
     hoverTiles.length = 0;
 
-    // ── Pass 1: draw all revealed tiles at normal size ──
+    // ── Pass 1: draw revealed tiles ──
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
-
-        // Bottom rows appear first (снизу вверх)
         const rowNorm = row / Math.max(1, ROWS - 1);
-        if (p2 < 1 - rowNorm) { cellScale[ci] = 1; continue; }
+        if (p2 < 1 - rowNorm) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         const baseX = col * PX;
         const baseY = row * PX;
@@ -546,32 +542,37 @@ function startPixelReveal(project) {
         const ddx = mX - cx, ddy = mY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
 
-        // ── Lens: scale up tiles near cursor, noise breaks symmetry ──
-        let tSc = 1;
-        if (dist < HOVER_R) {
+        // Lens: displace tiles away from cursor, noise breaks symmetry
+        let tDX = 0, tDY = 0;
+        if (dist < HOVER_R && dist > 0) {
           const norm = dist / HOVER_R;
-          const str = (1 - norm) * tileNoise[ci]; // noise: 0.3–1.0 per tile
-          tSc = 1 + str * 1.4; // up to 140% bigger near center
+          const push = (1 - norm) * tileNoise[ci] * MAX_PUSH;
+          tDX = -(ddx / dist) * push;
+          tDY = -(ddy / dist) * push;
         }
-        cellScale[ci] += (tSc - cellScale[ci]) * 0.13;
-        const sc = cellScale[ci];
+        cellDX[ci] += (tDX - cellDX[ci]) * 0.13;
+        cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
 
-        if (sc > 1.05) {
-          hoverTiles.push({ baseX, baseY, sc, dist });
+        const dx = cellDX[ci], dy = cellDY[ci];
+        const hasDrift = dx * dx + dy * dy > 1;
+
+        // Dark gap fill for this cell (makes gaps opaque in revealed area)
+        ctx.fillStyle = '#06050A';
+        ctx.fillRect(baseX, baseY, PX, PX);
+
+        if (hasDrift) {
+          hoverTiles.push({ baseX, baseY, dx, dy, dist });
+        } else {
+          ctx.drawImage(tex, baseX, baseY, PX, PX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
         }
-
-        // Base tile — normal size
-        ctx.drawImage(tex, baseX, baseY, PX, PX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
       }
     }
 
-    // ── Pass 2: hover tiles scaled up, no clip, farthest → closest ──
+    // ── Pass 2: displaced tiles, farthest first, no clip ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
-    for (const { baseX, baseY, sc } of hoverTiles) {
-      const s = CELL * sc;
-      const ox = baseX + PX / 2 - s / 2;
-      const oy = baseY + PX / 2 - s / 2;
-      ctx.drawImage(tex, baseX, baseY, PX, PX, ox, oy, s, s);
+    for (const { baseX, baseY, dx, dy } of hoverTiles) {
+      ctx.drawImage(tex, baseX, baseY, PX, PX,
+        baseX + dx + GAP / 2, baseY + dy + GAP / 2, CELL, CELL);
     }
   }
 
@@ -583,6 +584,7 @@ function startPixelReveal(project) {
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
     canvas.classList.remove('is-revealing');
+    document.body.classList.remove('detail-scrolling');
   };
 }
 function closeDetail() {
