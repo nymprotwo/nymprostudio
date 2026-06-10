@@ -63,10 +63,10 @@ function initGridDistortion(canvas, project, _dv) {
   if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
   if (gdCleanup) { gdCleanup(); gdCleanup = null; }
 
-  const COLS      = 28;
-  const GAP       = 3;
-  const HOVER_R   = 150;
-  const MAX_DISP  = 50;
+  const COLS      = 52;   // small tiles
+  const GAP       = 2;
+  const HOVER_R   = 130;
+  const MAX_DISP  = 40;
   // Extra texture height multiplier — image is TEX_SCROLL_H × canvas height tall
   // so scrolling through it feels like scrolling the real page
   const TEX_SCROLL_H = 2.2;
@@ -125,10 +125,10 @@ function initGridDistortion(canvas, project, _dv) {
     requestAnimationFrame(() => buildTex(null));
   }
 
-  // Scroll drives progress: 0→1 over 2.5×vh after the hero section
-  function onScroll() {
-    const raw = Math.max(0, detailView.scrollTop - window.innerHeight);
-    scrollTgt = Math.min(1, raw / (window.innerHeight * 2.5));
+  // Wheel drives progress — NO DOM scroll, pure JS
+  function onWheel(e) {
+    e.preventDefault();
+    scrollTgt = Math.max(0, Math.min(1, scrollTgt + e.deltaY * 0.0008));
   }
   function onMM(e) {
     const r = canvas.getBoundingClientRect();
@@ -137,7 +137,7 @@ function initGridDistortion(canvas, project, _dv) {
   }
   function onML() { mX = -9999; mY = -9999; }
 
-  detailView.addEventListener('scroll', onScroll, { passive: true });
+  detailView.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('mousemove', onMM);
   canvas.addEventListener('mouseleave', onML);
 
@@ -157,12 +157,12 @@ function initGridDistortion(canvas, project, _dv) {
         const baseX = col * tileW;
         const baseY = row * tileH;
 
-        // Wave: center columns rise first, edges last
-        const norm  = Math.abs(col - (COLS - 1) / 2) / ((COLS - 1) / 2);
-        const delay = norm * 0.40;
-        const local = Math.max(0, Math.min(1, (scrollProg - delay) / (1 - delay)));
-        const ease  = 1 - Math.pow(1 - local, 3); // cubic ease-out
-        const riseY = (1 - ease) * (H + tileH * 2);
+        // Wave: bottom rows rise first, top rows last (снизу вверх)
+        const rowNorm = ROWS > 1 ? row / (ROWS - 1) : 0; // 0=top 1=bottom
+        const delay   = (1 - rowNorm) * 0.35; // top rows delayed most
+        const local   = Math.max(0, Math.min(1, (scrollProg - delay) / (1 - delay)));
+        const ease    = 1 - Math.pow(1 - local, 3);
+        const riseY   = (1 - ease) * (H + tileH * 2);
 
         // Hover lens: push tiles away from cursor
         const cx = baseX + tileW / 2, cy = baseY + tileH / 2;
@@ -200,7 +200,7 @@ function initGridDistortion(canvas, project, _dv) {
 
   gdCleanup = () => {
     if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
-    detailView.removeEventListener('scroll', onScroll);
+    detailView.removeEventListener('wheel', onWheel);
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
   };
