@@ -1828,7 +1828,8 @@ body[data-page="playground"] .cpop {
   align-items: flex-start;
   padding: 0 6vw;
   position: relative;
-  z-index: 10;
+  z-index: 1;
+  transition: opacity 0.5s ease;
 }
 
 .proj-detail-title {
@@ -1899,7 +1900,7 @@ body[data-page="playground"] .cpop {
   height: 52vh;
   display: block;
   cursor: crosshair;
-  z-index: 2;
+  z-index: 20;
   opacity: 0;
   transition: opacity 0.4s ease;
 }
@@ -1907,19 +1908,8 @@ body[data-page="playground"] .cpop {
   opacity: 1;
 }
 
-/* Phase 1: scroll begins → fade out UI except title */
-.proj-detail-view.is-scrolling .proj-detail-meta,
-.proj-detail-view.is-scrolling .proj-scroll-hint,
-.proj-detail-view.is-scrolling .proj-back {
+/* Phase 1: scroll begins → весь hero исчезает */
+.proj-detail-view.is-scrolling .proj-detail-hero {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(8px);
-}
-.proj-detail-view.is-scrolling .proj-scroll-hint {
-  transform: translateX(-50%) translateY(8px);
-}
-/* Title stays, shrinks slightly to center */
-.proj-detail-view.is-scrolling .proj-detail-title {
-  font-size: 14vw;
-  transition: font-size 0.6s ease;
 }
