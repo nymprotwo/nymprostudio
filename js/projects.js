@@ -59,55 +59,76 @@ function gradToCanvas(gradStr, w, h) {
 let gdRaf = null;   // grid distortion RAF handle
 let gdCleanup = null; // cleanup fn stored for closeDetail
 
-function initGridDistortion(canvas, project, _dv) { // _dv unused — uses outer detailView
+function initGridDistortion(canvas, project, _dv) {
   if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
   if (gdCleanup) { gdCleanup(); gdCleanup = null; }
 
-  const COLS = 32;
-  const GAP  = 2;   // px gap between tiles
-  const HOVER_R   = 170;
-  const MAX_DISP  = 60;
+  const COLS      = 28;
+  const GAP       = 3;
+  const HOVER_R   = 150;
+  const MAX_DISP  = 50;
+  // Extra texture height multiplier — image is TEX_SCROLL_H × canvas height tall
+  // so scrolling through it feels like scrolling the real page
+  const TEX_SCROLL_H = 2.2;
 
   let W, H, tileW, tileH, ROWS;
-  let scrollProg  = 0;
-  let scrollTgt   = 0;
+  let scrollProg = 0;
+  let scrollTgt  = 0;
   let mX = -9999, mY = -9999;
-  let tex = null;  // offscreen canvas used as texture
+  let tex = null;   // offscreen canvas, height = H * TEX_SCROLL_H
+  let texH = 0;
 
-  function resize() {
-    W = canvas.parentElement ? canvas.parentElement.offsetWidth : window.innerWidth;
-    H = window.innerHeight;
+  function buildTex(imgEl) {
+    W = canvas.offsetWidth  || window.innerWidth;
+    H = canvas.offsetHeight || Math.round(window.innerHeight * 0.72);
     canvas.width  = W;
     canvas.height = H;
     tileW = W / COLS;
-    tileH = tileW; // square tiles
+    tileH = tileW;
     ROWS  = Math.ceil(H / tileH) + 1;
-    // Rebuild texture at new size if needed
-    if (project.img) {
-      const im = new Image();
-      im.onload = () => {
-        const oc = document.createElement('canvas');
-        oc.width = W; oc.height = H;
-        const oc2 = oc.getContext('2d');
-        // Cover-fit image
-        const scale = Math.max(W / im.naturalWidth, H / im.naturalHeight);
-        const sw = im.naturalWidth * scale, sh = im.naturalHeight * scale;
-        oc2.drawImage(im, (W - sw) / 2, (H - sh) / 2, sw, sh);
-        tex = oc;
-      };
-      im.src = project.img;
-    } else {
-      tex = gradToCanvas(project.grad, W, H);
-    }
-  }
-  resize();
 
-  // Scroll on detail view drives progress (canvas is sticky)
+    texH = Math.round(H * TEX_SCROLL_H);
+    const oc  = document.createElement('canvas');
+    oc.width  = W;
+    oc.height = texH;
+    const oc2 = oc.getContext('2d');
+
+    if (imgEl) {
+      // Draw the real screenshot cover-fitted at the top, then repeat/darken below
+      const scale = Math.max(W / imgEl.naturalWidth, texH / imgEl.naturalHeight);
+      const sw = imgEl.naturalWidth * scale, sh = imgEl.naturalHeight * scale;
+      oc2.drawImage(imgEl, (W - sw) / 2, 0, sw, sh);
+    } else {
+      // Gradient fill
+      const colors = (project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f']);
+      const grd = oc2.createLinearGradient(0, 0, W, texH);
+      colors.forEach((c, i) => grd.addColorStop(i / Math.max(1, colors.length - 1), c));
+      oc2.fillStyle = grd;
+      oc2.fillRect(0, 0, W, texH);
+      // Scanlines
+      for (let y = 0; y < texH; y += 4) {
+        oc2.fillStyle = `rgba(0,0,0,${0.1 + Math.random() * 0.05})`;
+        oc2.fillRect(0, y, W, 1);
+      }
+    }
+    tex = oc;
+  }
+
+  // Load image or build gradient texture
+  if (project.img) {
+    const im = new Image();
+    im.onload  = () => buildTex(im);
+    im.onerror = () => buildTex(null);
+    im.src = project.img;
+  } else {
+    // Wait one frame so canvas has layout dimensions
+    requestAnimationFrame(() => buildTex(null));
+  }
+
+  // Scroll drives progress: 0→1 over 2.5×vh after the hero section
   function onScroll() {
-    const heroH = window.innerHeight;
-    // Drive 0→1 over 2 viewport heights of scroll after hero
-    const raw = Math.max(0, detailView.scrollTop - heroH);
-    scrollTgt = Math.min(1, raw / (window.innerHeight * 2));
+    const raw = Math.max(0, detailView.scrollTop - window.innerHeight);
+    scrollTgt = Math.min(1, raw / (window.innerHeight * 2.5));
   }
   function onMM(e) {
     const r = canvas.getBoundingClientRect();
@@ -122,25 +143,28 @@ function initGridDistortion(canvas, project, _dv) { // _dv unused — uses outer
 
   const ctx = canvas.getContext('2d');
 
-  function drawFrameClean() {
-    gdRaf = requestAnimationFrame(drawFrameClean);
+  function loop() {
+    gdRaf = requestAnimationFrame(loop);
     scrollProg += (scrollTgt - scrollProg) * 0.07;
     ctx.clearRect(0, 0, W, H);
     if (!tex) return;
+
+    // How far into the texture we are (parallax scroll of the image inside)
+    const parallaxOffset = scrollProg * (texH - H);
 
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
         const baseX = col * tileW;
         const baseY = row * tileH;
 
-        // Wave delay by column distance from center
+        // Wave: center columns rise first, edges last
         const norm  = Math.abs(col - (COLS - 1) / 2) / ((COLS - 1) / 2);
-        const delay = norm * 0.42;
+        const delay = norm * 0.40;
         const local = Math.max(0, Math.min(1, (scrollProg - delay) / (1 - delay)));
-        const ease  = 1 - Math.pow(1 - local, 3);
+        const ease  = 1 - Math.pow(1 - local, 3); // cubic ease-out
         const riseY = (1 - ease) * (H + tileH * 2);
 
-        // Lens displacement
+        // Hover lens: push tiles away from cursor
         const cx = baseX + tileW / 2, cy = baseY + tileH / 2;
         const dx = cx - mX, dy = cy - mY;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -151,29 +175,28 @@ function initGridDistortion(canvas, project, _dv) { // _dv unused — uses outer
           dispY = (dy / dist) * str * MAX_DISP;
         }
 
-        // Final tile top-left in screen space
-        const finalX = baseX + dispX;
-        const finalY = baseY + dispY - riseY;
-        const tW = tileW - GAP, tH = tileH - GAP;
+        const destX = baseX + dispX;
+        const destY = baseY + dispY - riseY;
 
         ctx.save();
-        // Clip to grid cell slot
         ctx.beginPath();
-        ctx.rect(baseX + GAP / 2, baseY + GAP / 2, tW, tH);
+        ctx.rect(baseX + GAP / 2, baseY + GAP / 2, tileW - GAP, tileH - GAP);
         ctx.clip();
-        // Draw tile: source is fixed (baseX,baseY in texture), dest is displaced
+        // Source: tile's position in the texture + parallax offset scrolling the image
         ctx.drawImage(
           tex,
-          baseX, baseY, tileW, tileH,   // source slice matches grid position
-          finalX, finalY, tileW, tileH  // destination at displaced location
+          baseX,                     // src X
+          baseY + parallaxOffset,    // src Y — image scrolls inside tiles
+          tileW, tileH,
+          destX, destY,
+          tileW, tileH
         );
         ctx.restore();
       }
     }
   }
 
-  // Cancel the first drawFrame and use clean version
-  gdRaf = requestAnimationFrame(drawFrameClean);
+  gdRaf = requestAnimationFrame(loop);
 
   gdCleanup = () => {
     if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
