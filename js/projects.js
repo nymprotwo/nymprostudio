@@ -512,14 +512,14 @@ function startPixelReveal(project) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
 
-        // ── Reveal: bottom rows appear first, threshold-based ──
-        // rowNorm: 0=top row, 1=bottom row
-        const rowNorm   = (ROWS - 1 - row) / Math.max(1, ROWS - 1); // 1=bottom, 0=top
-        const threshold = rowNorm; // bottom row threshold=1 → appears first when prog>0
-        // Actually: bottom row (rowNorm=1) should appear when prog is LOW
-        // So: threshold = 1 - rowNorm → bottom row threshold=0 (appears immediately)
-        const t = 1 - rowNorm; // 0=bottom row, 1=top row
-        if (revealProg < t) continue; // tile not yet visible = stays transparent
+        // ── Reveal: bottom rows appear first (снизу вверх) ──
+        // row=0 is TOP, row=ROWS-1 is BOTTOM
+        // rowNorm: 0=top, 1=bottom
+        const rowNorm = row / Math.max(1, ROWS - 1);
+        // threshold: bottom row (rowNorm=1) → t=0 (appears first at low progress)
+        //            top row (rowNorm=0)    → t=1 (appears last)
+        const t = 1 - rowNorm;
+        if (revealProg < t) continue; // not yet visible
 
         const baseX = col * PX;
         const baseY = row * PX;
