@@ -153,7 +153,7 @@ body[data-page="projects"] #stage {
 body[data-page="projects-detail"] #stage         { z-index: 2; }
 body[data-page="projects-detail"] #page-projects { background: #06050A; }
 body[data-page="projects-detail"] #page-projects::before { opacity: 0; }
-body[data-page="projects-detail"] .header        { opacity: 0; pointer-events: none; }
+body[data-page="projects-detail"] .header        { opacity: 0 !important; pointer-events: none !important; animation: none !important; }
 body[data-page="projects-detail"] .proj-back     { z-index: 980; }
 
 #stage canvas {
