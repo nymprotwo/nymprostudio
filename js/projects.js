@@ -460,24 +460,31 @@ function startPixelReveal(project) {
 
   // Phase 1 (0→0.15): header/hints fade. Phase 2 (0.15→1): tiles reveal
   const PHASE2_START = 0.15;
+  // Texture is TEX_MULT times taller than canvas → room to scroll image inside
+  const TEX_MULT = 2.5;
 
+  // revealTgt: 0→1 = tile reveal, 1→2 = image scroll inside canvas
   let revealProg = 0, revealTgt = 0;
+  let imgScrollProg = 0, imgScrollTgt = 0;
   let mX = -9999, mY = -9999;
   let tex = null;
+  let texH = 0;
 
   function buildTex(img) {
+    texH = Math.round(H * TEX_MULT);
     const oc = document.createElement('canvas');
-    oc.width = W; oc.height = H;
+    oc.width = W; oc.height = texH;
     const c2 = oc.getContext('2d');
     if (img) {
-      const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
-      const sw = img.naturalWidth * s, sh = img.naturalHeight * s;
-      c2.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
+      // Cover-fit image into the full tall texture
+      const scale = Math.max(W / img.naturalWidth, texH / img.naturalHeight);
+      const sw = img.naturalWidth * scale, sh = img.naturalHeight * scale;
+      c2.drawImage(img, (W - sw) / 2, 0, sw, sh);
     } else {
       const colors = project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f'];
-      const g = c2.createLinearGradient(0, 0, 0, H);
+      const g = c2.createLinearGradient(0, 0, 0, texH);
       colors.forEach((c, i) => g.addColorStop(i / Math.max(1, colors.length - 1), c));
-      c2.fillStyle = g; c2.fillRect(0, 0, W, H);
+      c2.fillStyle = g; c2.fillRect(0, 0, W, texH);
     }
     tex = oc;
   }
@@ -494,7 +501,14 @@ function startPixelReveal(project) {
   function onWheel(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    revealTgt = Math.max(0, Math.min(1, revealTgt + e.deltaY * 0.003));
+    const delta = e.deltaY * 0.003;
+    if (revealTgt < 1) {
+      // Phase 1: reveal tiles
+      revealTgt = Math.max(0, Math.min(1, revealTgt + delta));
+    } else {
+      // Phase 2: scroll image inside canvas
+      imgScrollTgt = Math.max(0, Math.min(1, imgScrollTgt + delta));
+    }
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
@@ -515,9 +529,13 @@ function startPixelReveal(project) {
 
     const p2 = Math.max(0, Math.min(1, (revealProg - PHASE2_START) / (1 - PHASE2_START)));
 
+    // Image scroll phase (after full reveal)
+    imgScrollProg += (imgScrollTgt - imgScrollProg) * 0.08;
+    // srcY offset: 0 = top of texture, max = texH - H
+    const srcYOffset = imgScrollProg * (texH - H);
+
     // Phase 1: header/hints fade via body class
-    const scrolling = revealTgt > 0.02;
-    document.body.classList.toggle('detail-scrolling', scrolling);
+    document.body.classList.toggle('detail-scrolling', revealTgt > 0.02);
 
     // Canvas transparent bg — hero shows through unrevealed areas
     ctx.clearRect(0, 0, W, H);
@@ -556,22 +574,25 @@ function startPixelReveal(project) {
         const dx = cellDX[ci], dy = cellDY[ci];
         const hasDrift = dx * dx + dy * dy > 1;
 
-        // Dark gap fill for this cell (makes gaps opaque in revealed area)
+        // Dark gap fill for this cell
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
 
+        // srcY = tile's position in texture + image scroll offset
+        const srcY = baseY + srcYOffset;
+
         if (hasDrift) {
-          hoverTiles.push({ baseX, baseY, dx, dy, dist });
+          hoverTiles.push({ baseX, baseY, dx, dy, dist, srcY });
         } else {
-          ctx.drawImage(tex, baseX, baseY, PX, PX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+          ctx.drawImage(tex, baseX, srcY, PX, PX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
         }
       }
     }
 
     // ── Pass 2: displaced tiles, farthest first, no clip ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
-    for (const { baseX, baseY, dx, dy } of hoverTiles) {
-      ctx.drawImage(tex, baseX, baseY, PX, PX,
+    for (const { baseX, baseY, dx, dy, srcY } of hoverTiles) {
+      ctx.drawImage(tex, baseX, srcY, PX, PX,
         baseX + dx + GAP / 2, baseY + dy + GAP / 2, CELL, CELL);
     }
   }
