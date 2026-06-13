@@ -471,20 +471,21 @@ function startPixelReveal(project) {
   let texH = 0;
 
   function buildTex(img) {
-    texH = Math.round(H * TEX_MULT);
     const oc = document.createElement('canvas');
-    oc.width = W; oc.height = texH;
-    const c2 = oc.getContext('2d');
+    oc.width = W;
     if (img) {
-      // Cover-fit image into the full tall texture
-      const scale = Math.max(W / img.naturalWidth, texH / img.naturalHeight);
-      const sw = img.naturalWidth * scale, sh = img.naturalHeight * scale;
-      c2.drawImage(img, (W - sw) / 2, 0, sw, sh);
+      // Scale image to canvas width, keep full height → shows ALL pages
+      const scale = W / img.naturalWidth;
+      texH = Math.round(img.naturalHeight * scale);
+      oc.height = texH;
+      oc.getContext('2d').drawImage(img, 0, 0, W, texH);
     } else {
+      texH = Math.round(H * TEX_MULT);
+      oc.height = texH;
       const colors = project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f'];
-      const g = c2.createLinearGradient(0, 0, 0, texH);
+      const g = oc.getContext('2d').createLinearGradient(0, 0, 0, texH);
       colors.forEach((c, i) => g.addColorStop(i / Math.max(1, colors.length - 1), c));
-      c2.fillStyle = g; c2.fillRect(0, 0, W, texH);
+      oc.getContext('2d').fillStyle = g; oc.getContext('2d').fillRect(0, 0, W, texH);
     }
     tex = oc;
   }
@@ -502,12 +503,20 @@ function startPixelReveal(project) {
     e.preventDefault();
     e.stopImmediatePropagation();
     const delta = e.deltaY * 0.003;
-    if (revealTgt < 1) {
-      // Phase 1: reveal tiles
-      revealTgt = Math.max(0, Math.min(1, revealTgt + delta));
+    if (delta > 0) {
+      // Scroll down: first reveal tiles, then scroll image
+      if (revealTgt < 1) {
+        revealTgt = Math.min(1, revealTgt + delta);
+      } else {
+        imgScrollTgt = Math.max(0, Math.min(1, imgScrollTgt + delta));
+      }
     } else {
-      // Phase 2: scroll image inside canvas
-      imgScrollTgt = Math.max(0, Math.min(1, imgScrollTgt + delta));
+      // Scroll up: first un-scroll image, then collapse tiles
+      if (imgScrollTgt > 0) {
+        imgScrollTgt = Math.max(0, imgScrollTgt + delta);
+      } else {
+        revealTgt = Math.max(0, revealTgt + delta);
+      }
     }
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
