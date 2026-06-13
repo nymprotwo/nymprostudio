@@ -460,34 +460,34 @@ function startPixelReveal(project) {
 
   // Phase 1 (0→0.15): header/hints fade. Phase 2 (0.15→1): tiles reveal
   const PHASE2_START = 0.15;
-  // Texture is TEX_MULT times taller than canvas → room to scroll image inside
   const TEX_MULT = 2.5;
 
-  // revealTgt: 0→1 = tile reveal, 1→2 = image scroll inside canvas
-  let revealProg = 0, revealTgt = 0;
-  let imgScrollProg = 0, imgScrollTgt = 0;
+  // Single master progress: 0→1 = reveal, 1→2 = image scroll
+  let masterTgt = 0, masterProg = 0;
   let mX = -9999, mY = -9999;
+
+  // tex: HTMLImageElement (direct) or small offscreen canvas for gradient
   let tex = null;
-  let texH = 0;
+  let texNW = 1, texNH = 1; // natural/source dimensions
 
   function buildTex(img) {
-    const oc = document.createElement('canvas');
-    oc.width = W;
     if (img) {
-      // Scale image to canvas width, keep full height → shows ALL pages
-      const scale = W / img.naturalWidth;
-      texH = Math.round(img.naturalHeight * scale);
-      oc.height = texH;
-      oc.getContext('2d').drawImage(img, 0, 0, W, texH);
+      tex   = img;
+      texNW = img.naturalWidth;
+      texNH = img.naturalHeight;
     } else {
-      texH = Math.round(H * TEX_MULT);
-      oc.height = texH;
+      const texH = Math.round(H * TEX_MULT);
+      const oc   = document.createElement('canvas');
+      oc.width = W; oc.height = texH;
       const colors = project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f'];
       const g = oc.getContext('2d').createLinearGradient(0, 0, 0, texH);
       colors.forEach((c, i) => g.addColorStop(i / Math.max(1, colors.length - 1), c));
-      oc.getContext('2d').fillStyle = g; oc.getContext('2d').fillRect(0, 0, W, texH);
+      oc.getContext('2d').fillStyle = g;
+      oc.getContext('2d').fillRect(0, 0, W, texH);
+      tex   = oc;
+      texNW = W;
+      texNH = texH;
     }
-    tex = oc;
   }
 
   if (project.img) {
@@ -502,22 +502,8 @@ function startPixelReveal(project) {
   function onWheel(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    const delta = e.deltaY * 0.003;
-    if (delta > 0) {
-      // Scroll down: first reveal tiles, then scroll image
-      if (revealTgt < 1) {
-        revealTgt = Math.min(1, revealTgt + delta);
-      } else {
-        imgScrollTgt = Math.max(0, Math.min(1, imgScrollTgt + delta));
-      }
-    } else {
-      // Scroll up: first un-scroll image, then collapse tiles
-      if (imgScrollTgt > 0) {
-        imgScrollTgt = Math.max(0, imgScrollTgt + delta);
-      } else {
-        revealTgt = Math.max(0, revealTgt + delta);
-      }
-    }
+    // masterTgt: 0→1 reveal, 1→2 image scroll
+    masterTgt = Math.max(0, Math.min(2, masterTgt + e.deltaY * 0.003));
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
@@ -536,15 +522,23 @@ function startPixelReveal(project) {
     gdRaf = requestAnimationFrame(loop);
     revealProg += (revealTgt - revealProg) * 0.10;
 
+    // Single eased value drives everything
+    masterProg += (masterTgt - masterProg) * 0.10;
+
+    const revealProg = Math.min(1, masterProg);
     const p2 = Math.max(0, Math.min(1, (revealProg - PHASE2_START) / (1 - PHASE2_START)));
 
-    // Image scroll phase (after full reveal)
-    imgScrollProg += (imgScrollTgt - imgScrollProg) * 0.08;
-    // srcY offset: 0 = top of texture, max = texH - H
-    const srcYOffset = imgScrollProg * (texH - H);
+    // Image scroll: only after reveal complete (masterProg > 1)
+    const imgT = Math.max(0, masterProg - 1); // 0→1
+
+    // srcY in natural image coordinates
+    const maxSrcY = texNH - texNH * (H / (texNW / texNW * texNH / (texNH / texNW * W / W)));
+    // Simpler: scale = W/texNW, visibleH in natural px = H * (texNW/W)
+    const visH    = H * (texNW / W);
+    const srcYOff = imgT * (texNH - visH); // 0 → texNH-visH
 
     // Phase 1: header/hints fade via body class
-    document.body.classList.toggle('detail-scrolling', revealTgt > 0.02);
+    document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
 
     // Canvas transparent bg — hero shows through unrevealed areas
     ctx.clearRect(0, 0, W, H);
@@ -587,21 +581,24 @@ function startPixelReveal(project) {
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
 
-        // srcY = tile's position in texture + image scroll offset
-        const srcY = baseY + srcYOffset;
+        // Map canvas tile position → natural image coordinates
+        const sc   = texNW / W;            // natural px per canvas px
+        const nX   = baseX * sc;
+        const nY   = baseY * sc + srcYOff; // apply image scroll
+        const nPX  = PX * sc;
 
         if (hasDrift) {
-          hoverTiles.push({ baseX, baseY, dx, dy, dist, srcY });
+          hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX });
         } else {
-          ctx.drawImage(tex, baseX, srcY, PX, PX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+          ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
         }
       }
     }
 
     // ── Pass 2: displaced tiles, farthest first, no clip ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
-    for (const { baseX, baseY, dx, dy, srcY } of hoverTiles) {
-      ctx.drawImage(tex, baseX, srcY, PX, PX,
+    for (const { baseX, baseY, dx, dy, nX, nY, nPX } of hoverTiles) {
+      ctx.drawImage(tex, nX, nY, nPX, nPX,
         baseX + dx + GAP / 2, baseY + dy + GAP / 2, CELL, CELL);
     }
   }
