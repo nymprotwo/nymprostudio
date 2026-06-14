@@ -504,7 +504,7 @@ function startPixelReveal(project) {
     e.preventDefault();
     e.stopImmediatePropagation();
     // masterTgt: 0→1 reveal, 1→2 image scroll
-    masterTgt = Math.max(0, Math.min(2, masterTgt + e.deltaY * 0.003));
+    masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * 0.003));
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
@@ -528,8 +528,8 @@ function startPixelReveal(project) {
     const rp = Math.min(1, masterProg);
     const p2 = Math.max(0, Math.min(1, (rp - PHASE2_START) / (1 - PHASE2_START)));
 
-    // Image scroll: starts only after reveal complete (masterProg > 1)
-    const imgT   = Math.max(0, masterProg - 1);   // 0→1
+    // Image scroll: starts only after reveal complete (masterProg > 1→4 range)
+    const imgT   = Math.max(0, Math.min(1, (masterProg - 1) / 3));   // 0→1 over 1→4
     const visH   = H * (texNW / W);               // visible height in natural px
     const srcYOff = imgT * Math.max(0, texNH - visH);
 
