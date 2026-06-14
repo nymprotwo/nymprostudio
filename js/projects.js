@@ -520,22 +520,17 @@ function startPixelReveal(project) {
 
   function loop() {
     gdRaf = requestAnimationFrame(loop);
-    revealProg += (revealTgt - revealProg) * 0.10;
 
-    // Single eased value drives everything
+    // Single eased value: 0→1 = tile reveal, 1→2 = image scroll
     masterProg += (masterTgt - masterProg) * 0.10;
 
-    const revealProg = Math.min(1, masterProg);
-    const p2 = Math.max(0, Math.min(1, (revealProg - PHASE2_START) / (1 - PHASE2_START)));
+    const rp = Math.min(1, masterProg);
+    const p2 = Math.max(0, Math.min(1, (rp - PHASE2_START) / (1 - PHASE2_START)));
 
-    // Image scroll: only after reveal complete (masterProg > 1)
-    const imgT = Math.max(0, masterProg - 1); // 0→1
-
-    // srcY in natural image coordinates
-    const maxSrcY = texNH - texNH * (H / (texNW / texNW * texNH / (texNH / texNW * W / W)));
-    // Simpler: scale = W/texNW, visibleH in natural px = H * (texNW/W)
-    const visH    = H * (texNW / W);
-    const srcYOff = imgT * (texNH - visH); // 0 → texNH-visH
+    // Image scroll: starts only after reveal complete (masterProg > 1)
+    const imgT   = Math.max(0, masterProg - 1);   // 0→1
+    const visH   = H * (texNW / W);               // visible height in natural px
+    const srcYOff = imgT * Math.max(0, texNH - visH);
 
     // Phase 1: header/hints fade via body class
     document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
