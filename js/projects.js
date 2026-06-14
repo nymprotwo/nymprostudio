@@ -431,6 +431,7 @@ function openDetail(i) {
 
 // ── Pixel grid reveal (yutaabe-style) ─────────────────
 function startPixelReveal(project) {
+  if (gdCleanup) { gdCleanup(); gdCleanup = null; }
   if (gdRaf) { cancelAnimationFrame(gdRaf); gdRaf = null; }
 
   const canvas = document.getElementById('proj-pixel-canvas');
@@ -637,6 +638,7 @@ export function showProjects() {
 
 export function hideProjects() {
   if (!pg) return;
+  if (gdCleanup) { gdCleanup(); gdCleanup = null; }
   // Always reset detail → list so next open starts fresh
   if (detailView?.classList.contains('is-visible')) {
     detailView.classList.remove('is-visible');
