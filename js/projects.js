@@ -437,13 +437,16 @@ function startPixelReveal(project) {
   const canvas = document.getElementById('proj-pixel-canvas');
   if (!canvas) return;
 
-  const PX      = 14;
-  const GAP     = 1;
-  const CELL    = PX - GAP;
-  const HOVER_R = 150;
+  const PX       = 14;
+  const GAP      = 1;
+  const CELL     = PX - GAP;
+  const HOVER_R  = 150;
   const MAX_PUSH = 22;
+  const PHASE2_START = 0.15;
+  const TEX_MULT = 2.5;
 
-  const W = canvas.offsetWidth  || window.innerWidth;
+  // Canvas = full viewport width; inner "content" zone = 90vw centered
+  const W = window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
   canvas.height = H;
@@ -451,49 +454,48 @@ function startPixelReveal(project) {
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
 
-  // Per-cell eased displacement for lens
-  const cellDX = new Float32Array(COLS * ROWS);
-  const cellDY = new Float32Array(COLS * ROWS);
+  // Inner zone boundaries (matching former 5vw / 90vw layout)
+  const INNER_MARGIN = Math.round(W * 0.05);
+  const INNER_COL0   = Math.floor(INNER_MARGIN / PX);  // first inner col index
+  const INNER_COL1   = COLS - INNER_COL0;              // first right-edge col index
+  const INNER_PX_W   = (INNER_COL1 - INNER_COL0) * PX; // inner zone width in canvas px
 
-  // Per-tile noise arrays — seeded once
-  const tileNoise = new Float32Array(COLS * ROWS);  // magnitude
-  const tileAngle = new Float32Array(COLS * ROWS);  // angular jitter breaks circularity
-  const tilePhase = new Float32Array(COLS * ROWS);  // time phase → always changing
+  const cellDX      = new Float32Array(COLS * ROWS);
+  const cellDY      = new Float32Array(COLS * ROWS);
+  const tileNoise   = new Float32Array(COLS * ROWS);
+  const tileAngle   = new Float32Array(COLS * ROWS);
+  const tilePhase   = new Float32Array(COLS * ROWS);
+  const tileEdgeN   = new Float32Array(COLS * ROWS); // edge expansion scatter threshold
+  const tileRevealN = new Float32Array(COLS * ROWS); // reveal-wave scatter offset
+
   for (let i = 0; i < COLS * ROWS; i++) {
-    tileNoise[i] = 0.1 + Math.random() * 1.8;
-    tileAngle[i] = (Math.random() - 0.5) * 1.2; // ±0.6 rad angular jitter
-    tilePhase[i] = Math.random() * Math.PI * 2;  // random phase for sin oscillation
+    tileNoise[i]   = 0.1 + Math.random() * 1.8;
+    tileAngle[i]   = (Math.random() - 0.5) * 1.2;
+    tilePhase[i]   = Math.random() * Math.PI * 2;
+    tileEdgeN[i]   = Math.random();
+    tileRevealN[i] = Math.random();
   }
 
-  // Phase 1 (0→0.15): header/hints fade. Phase 2 (0.15→1): tiles reveal
-  const PHASE2_START = 0.15;
-  const TEX_MULT = 2.5;
-
-  // Single master progress: 0→1 = reveal, 1→2 = image scroll
   let masterTgt = 0, masterProg = 0;
+  let prevMasterProg = 0;
+  let scrollTime = 0;
+  let expandProg = 0; // 0=normal 1=fully expanded during scroll
   let mX = -9999, mY = -9999;
-
-  // tex: HTMLImageElement (direct) or small offscreen canvas for gradient
-  let tex = null;
-  let texNW = 1, texNH = 1; // natural/source dimensions
+  let tex = null, texNW = 1, texNH = 1;
 
   function buildTex(img) {
     if (img) {
-      tex   = img;
-      texNW = img.naturalWidth;
-      texNH = img.naturalHeight;
+      tex = img; texNW = img.naturalWidth; texNH = img.naturalHeight;
     } else {
       const texH = Math.round(H * TEX_MULT);
       const oc   = document.createElement('canvas');
-      oc.width = W; oc.height = texH;
+      oc.width = INNER_PX_W; oc.height = texH;
       const colors = project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f'];
       const g = oc.getContext('2d').createLinearGradient(0, 0, 0, texH);
       colors.forEach((c, i) => g.addColorStop(i / Math.max(1, colors.length - 1), c));
       oc.getContext('2d').fillStyle = g;
-      oc.getContext('2d').fillRect(0, 0, W, texH);
-      tex   = oc;
-      texNW = W;
-      texNH = texH;
+      oc.getContext('2d').fillRect(0, 0, INNER_PX_W, texH);
+      tex = oc; texNW = INNER_PX_W; texNH = texH;
     }
   }
 
@@ -509,8 +511,7 @@ function startPixelReveal(project) {
   function onWheel(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    // masterTgt: 0→1 reveal, 1→2 image scroll
-    const speed = masterTgt < 1 ? 0.003 : 0.0007; // image scroll 4x slower
+    const speed = masterTgt < 1 ? 0.003 : 0.0007;
     masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * speed));
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
@@ -526,47 +527,57 @@ function startPixelReveal(project) {
   const ctx = canvas.getContext('2d');
   const hoverTiles = [];
 
-  let prevMasterProg = 0;
-  let scrollTime = 0; // accumulates during scroll, drives lens animation
-
   function loop() {
     gdRaf = requestAnimationFrame(loop);
-
-    // Single eased value: 0→1 = tile reveal, 1→2 = image scroll
     masterProg += (masterTgt - masterProg) * 0.10;
 
-    // Scroll velocity drives lens animation speed
     const scrollVel = Math.abs(masterProg - prevMasterProg);
     prevMasterProg = masterProg;
-    scrollTime += scrollVel * 25; // fast accumulation, decays via sin naturally
+    scrollTime += scrollVel * 25;
 
-    const rp = Math.min(1, masterProg);
-    const p2 = Math.max(0, Math.min(1, (rp - PHASE2_START) / (1 - PHASE2_START)));
+    // expandProg: fast attack when scrolling, slow decay when stopped
+    const scrolling = scrollVel > 0.00008;
+    expandProg += ((scrolling ? 1 : 0) - expandProg) * (scrolling ? 0.12 : 0.035);
 
-    // Image scroll: starts only after reveal complete (masterProg > 1→4 range)
-    const imgT   = Math.max(0, Math.min(1, (masterProg - 1) / 3));   // 0→1 over 1→4
-    const visH   = H * (texNW / W);               // visible height in natural px
+    const rp      = Math.min(1, masterProg);
+    const p2      = Math.max(0, Math.min(1, (rp - PHASE2_START) / (1 - PHASE2_START)));
+    const imgT    = Math.max(0, Math.min(1, (masterProg - 1) / 3));
+
+    // Image coordinate scale: inner zone canvas px → image px
+    const sc      = texNW / INNER_PX_W;
+    const visH    = H * sc;
     const srcYOff = imgT * Math.max(0, texNH - visH);
 
-    // Phase 1: header/hints fade via body class
     document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
-
-    // Canvas transparent bg — hero shows through unrevealed areas
     ctx.clearRect(0, 0, W, H);
-
-    // Canvas element visible only when tiles start appearing
     canvas.classList.toggle('is-revealing', p2 > 0.005);
 
     if (!tex) return;
-
     hoverTiles.length = 0;
 
     // ── Pass 1: draw revealed tiles ──
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
-        const rowNorm = row / Math.max(1, ROWS - 1);
-        if (p2 < 1 - rowNorm) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+
+        // Edge zone logic: tiles outside inner zone only appear during scroll
+        const isLeft  = col < INNER_COL0;
+        const isRight = col >= INNER_COL1;
+        if (isLeft || isRight) {
+          // Normalized distance from inner zone boundary (0=adjacent, 1=outermost)
+          const edgeDist = isLeft
+            ? (INNER_COL0 - 1 - col) / Math.max(1, INNER_COL0)
+            : (col - INNER_COL1) / Math.max(1, INNER_COL0);
+          // Per-tile scattered threshold: farthest tiles need more expansion
+          const thresh = edgeDist * (0.35 + tileEdgeN[ci] * 0.65);
+          if (expandProg < thresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        }
+
+        // Reveal wave: bottom→top with per-tile scatter (jagged edge not clean line)
+        const rowNorm   = row / Math.max(1, ROWS - 1);
+        const scatter   = (tileRevealN[ci] - 0.5) * 0.25; // ±0.125 range
+        const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
+        if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         const baseX = col * PX;
         const baseY = row * PX;
@@ -574,18 +585,13 @@ function startPixelReveal(project) {
         const ddx = mX - cx, ddy = mY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
 
-        // Lens: center pushes hard straight out, edges get chaotic jitter
         let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
           const norm = dist / HOVER_R;
-          const edgeFactor = norm * norm; // 0 at cursor, 1 at edge
-
-          // scrollTime advances fast during scroll → lens animates even with static mouse
+          const edgeFactor = norm * norm;
           const t = performance.now() * 0.0005 + scrollTime;
           const timeScale = 1.0 - edgeFactor * (0.5 - Math.sin(t + tilePhase[ci]) * 0.5);
-
           const push = (1 - norm) * tileNoise[ci] * timeScale * MAX_PUSH;
-          // Angle jitter grows toward edges — center is clean, edges chaotic
           const baseAngle = Math.atan2(-ddy, -ddx);
           const angle = baseAngle + tileAngle[ci] * edgeFactor;
           tDX = Math.cos(angle) * push;
@@ -595,19 +601,16 @@ function startPixelReveal(project) {
         cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
 
         const dx = cellDX[ci], dy = cellDY[ci];
-        // Only defer to pass 2 if displacement is meaningful (>4px)
-        // Small displacements at edge of HOVER_R stay in place → no circle outline
         const hasDrift = dx * dx + dy * dy > 16;
 
-        // Dark gap fill for this cell
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
 
-        // Map canvas tile position → natural image coordinates
-        const sc   = texNW / W;
-        const nX   = baseX * sc;
-        const nY   = baseY * sc + srcYOff;
-        const nPX  = PX * sc;
+        // Image coords: position relative to inner zone, clamped for edge tiles
+        const innerX = (col - INNER_COL0) * PX;
+        const nX  = Math.max(0, Math.min(texNW - PX * sc, innerX * sc));
+        const nY  = baseY * sc + srcYOff;
+        const nPX = PX * sc;
 
         if (hasDrift) {
           hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX });
@@ -617,9 +620,9 @@ function startPixelReveal(project) {
       }
     }
 
-    // ── Pass 2: displaced tiles, farthest first, fully opaque ──
+    // ── Pass 2: displaced tiles, farthest first ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
-    const DCELL = CELL - 1; // slightly smaller → always a gap between adjacent displaced tiles
+    const DCELL = CELL - 1;
     for (const { baseX, baseY, dx, dy, nX, nY, nPX } of hoverTiles) {
       ctx.drawImage(tex, nX, nY, nPX, nPX,
         baseX + dx + 1, baseY + dy + 1, DCELL, DCELL);
