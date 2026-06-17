@@ -445,7 +445,7 @@ function startPixelReveal(project) {
   const PHASE2_START = 0.15;
   const TEX_MULT = 2.5;
 
-  // Canvas = full viewport width; inner "content" zone = 90vw centered
+  // Canvas = full viewport width, slightly taller for top/bottom expansion zones
   const W = window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
@@ -454,18 +454,21 @@ function startPixelReveal(project) {
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
 
-  // Inner zone boundaries (matching former 5vw / 90vw layout)
-  const INNER_MARGIN = Math.round(W * 0.05);
-  const INNER_COL0   = Math.floor(INNER_MARGIN / PX);  // first inner col index
-  const INNER_COL1   = COLS - INNER_COL0;              // first right-edge col index
-  const INNER_PX_W   = (INNER_COL1 - INNER_COL0) * PX; // inner zone width in canvas px
+  // Inner zone = central 90vw × 52/64 of height; edges are expansion zones
+  const INNER_COL0 = Math.floor(W * 0.05 / PX);
+  const INNER_COL1 = COLS - INNER_COL0;
+  const INNER_PX_W = (INNER_COL1 - INNER_COL0) * PX;
+
+  // Top/bottom edge rows (6/64 of canvas height on each side)
+  const INNER_ROW0 = Math.floor(H * 0.094 / PX); // ~6vh / 64vh
+  const INNER_ROW1 = ROWS - INNER_ROW0;
 
   const cellDX      = new Float32Array(COLS * ROWS);
   const cellDY      = new Float32Array(COLS * ROWS);
   const tileNoise   = new Float32Array(COLS * ROWS);
   const tileAngle   = new Float32Array(COLS * ROWS);
   const tilePhase   = new Float32Array(COLS * ROWS);
-  const tileEdgeN   = new Float32Array(COLS * ROWS); // edge expansion scatter threshold
+  const tileEdgeN   = new Float32Array(COLS * ROWS); // vertical edge scatter threshold
   const tileRevealN = new Float32Array(COLS * ROWS); // reveal-wave scatter offset
 
   for (let i = 0; i < COLS * ROWS; i++) {
@@ -480,7 +483,10 @@ function startPixelReveal(project) {
   let prevMasterProg = 0;
   let scrollTime = 0;
   let expandProg = 0; // 0=normal 1=fully expanded during scroll
+  // Raw mouse position, updated on mousemove
   let mX = -9999, mY = -9999;
+  // Smoothed position used for lens — lags behind cursor
+  let smoothMX = -9999, smoothMY = -9999;
   let tex = null, texNW = 1, texNH = 1;
 
   function buildTex(img) {
@@ -539,6 +545,15 @@ function startPixelReveal(project) {
     const scrolling = scrollVel > 0.00008;
     expandProg += ((scrolling ? 1 : 0) - expandProg) * (scrolling ? 0.12 : 0.035);
 
+    // Smooth mouse position — lens lags behind cursor
+    if (mX > 0) {
+      if (smoothMX < 0) { smoothMX = mX; smoothMY = mY; } // snap on first enter
+      smoothMX += (mX - smoothMX) * 0.07;
+      smoothMY += (mY - smoothMY) * 0.07;
+    } else {
+      smoothMX = -9999; smoothMY = -9999;
+    }
+
     const rp      = Math.min(1, masterProg);
     const p2      = Math.max(0, Math.min(1, (rp - PHASE2_START) / (1 - PHASE2_START)));
     const imgT    = Math.max(0, Math.min(1, (masterProg - 1) / 3));
@@ -560,29 +575,32 @@ function startPixelReveal(project) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
 
-        // Edge zone logic: tiles outside inner zone only appear during scroll
-        const isLeft  = col < INNER_COL0;
-        const isRight = col >= INNER_COL1;
-        if (isLeft || isRight) {
-          // Normalized distance from inner zone boundary (0=adjacent, 1=outermost)
-          const edgeDist = isLeft
-            ? (INNER_COL0 - 1 - col) / Math.max(1, INNER_COL0)
-            : (col - INNER_COL1) / Math.max(1, INNER_COL0);
-          // Per-tile scattered threshold: farthest tiles need more expansion
+        // Top/bottom edge rows: only appear during scroll (expandProg)
+        const isTop    = row < INNER_ROW0;
+        const isBottom = row >= INNER_ROW1;
+        if (isTop || isBottom) {
+          // Distance from inner zone boundary (0=adjacent, 1=outermost)
+          const edgeDist = isTop
+            ? (INNER_ROW0 - 1 - row) / Math.max(1, INNER_ROW0)
+            : (row - INNER_ROW1) / Math.max(1, INNER_ROW0);
           const thresh = edgeDist * (0.35 + tileEdgeN[ci] * 0.65);
           if (expandProg < thresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
         }
 
-        // Reveal wave: bottom→top with per-tile scatter (jagged edge not clean line)
-        const rowNorm   = row / Math.max(1, ROWS - 1);
-        const scatter   = (tileRevealN[ci] - 0.5) * 0.25; // ±0.125 range
+        // Reveal wave: bottom→top within inner zone only, with per-tile scatter
+        const innerRow  = Math.max(0, Math.min(INNER_ROW1 - INNER_ROW0 - 1, row - INNER_ROW0));
+        const innerRows = Math.max(1, INNER_ROW1 - INNER_ROW0 - 1);
+        const rowNorm   = innerRow / innerRows;
+        const scatter   = (tileRevealN[ci] - 0.5) * 0.25;
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
-        if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        if (!isTop && !isBottom && p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        // Edge rows use p2 fully (they appear via expandProg only)
+        if ((isTop || isBottom) && p2 < 0.05) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         const baseX = col * PX;
         const baseY = row * PX;
         const cx = baseX + PX / 2, cy = baseY + PX / 2;
-        const ddx = mX - cx, ddy = mY - cy;
+        const ddx = smoothMX - cx, ddy = smoothMY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
 
         let tDX = 0, tDY = 0;
@@ -606,11 +624,12 @@ function startPixelReveal(project) {
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
 
-        // Image coords: position relative to inner zone, clamped for edge tiles
+        // Image coords: relative to inner zone, clamped for edge tiles
+        const nPX  = PX * sc;
         const innerX = (col - INNER_COL0) * PX;
-        const nX  = Math.max(0, Math.min(texNW - PX * sc, innerX * sc));
-        const nY  = baseY * sc + srcYOff;
-        const nPX = PX * sc;
+        const innerY = (row - INNER_ROW0) * PX;
+        const nX  = Math.max(0, Math.min(texNW - nPX, innerX * sc));
+        const nY  = Math.max(0, Math.min(texNH - nPX, innerY * sc + srcYOff));
 
         if (hasDrift) {
           hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX });
