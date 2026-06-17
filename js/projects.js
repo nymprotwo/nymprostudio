@@ -504,7 +504,8 @@ function startPixelReveal(project) {
     e.preventDefault();
     e.stopImmediatePropagation();
     // masterTgt: 0→1 reveal, 1→2 image scroll
-    masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * 0.003));
+    const speed = masterTgt < 1 ? 0.003 : 0.0007; // image scroll 4x slower
+    masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * speed));
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
@@ -571,32 +572,41 @@ function startPixelReveal(project) {
         cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
 
         const dx = cellDX[ci], dy = cellDY[ci];
-        const hasDrift = dx * dx + dy * dy > 1;
+        // Only defer to pass 2 if displacement is meaningful (>4px)
+        // Small displacements at edge of HOVER_R stay in place → no circle outline
+        const hasDrift = dx * dx + dy * dy > 16;
 
         // Dark gap fill for this cell
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
 
         // Map canvas tile position → natural image coordinates
-        const sc   = texNW / W;            // natural px per canvas px
+        const sc   = texNW / W;
         const nX   = baseX * sc;
-        const nY   = baseY * sc + srcYOff; // apply image scroll
+        const nY   = baseY * sc + srcYOff;
         const nPX  = PX * sc;
 
+        // Alpha for edge tiles: fade out outer 25% of HOVER_R
+        const edgeAlpha = dist < HOVER_R
+          ? Math.min(1, (HOVER_R - dist) / (HOVER_R * 0.25))
+          : 1;
+
         if (hasDrift) {
-          hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX });
+          hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX, edgeAlpha });
         } else {
           ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
         }
       }
     }
 
-    // ── Pass 2: displaced tiles, farthest first, no clip ──
+    // ── Pass 2: displaced tiles, farthest first, alpha fade at edges ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
-    for (const { baseX, baseY, dx, dy, nX, nY, nPX } of hoverTiles) {
+    for (const { baseX, baseY, dx, dy, nX, nY, nPX, edgeAlpha } of hoverTiles) {
+      ctx.globalAlpha = edgeAlpha;
       ctx.drawImage(tex, nX, nY, nPX, nPX,
         baseX + dx + GAP / 2, baseY + dy + GAP / 2, CELL, CELL);
     }
+    ctx.globalAlpha = 1;
   }
 
   gdRaf = requestAnimationFrame(loop);
