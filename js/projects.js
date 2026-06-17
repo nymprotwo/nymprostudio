@@ -455,9 +455,15 @@ function startPixelReveal(project) {
   const cellDX = new Float32Array(COLS * ROWS);
   const cellDY = new Float32Array(COLS * ROWS);
 
-  // Per-tile noise — seeded once, breaks perfect symmetry
-  const tileNoise = new Float32Array(COLS * ROWS);
-  for (let i = 0; i < COLS * ROWS; i++) tileNoise[i] = 0.05 + Math.random() * 1.75;
+  // Per-tile noise arrays — seeded once
+  const tileNoise = new Float32Array(COLS * ROWS);  // magnitude
+  const tileAngle = new Float32Array(COLS * ROWS);  // angular jitter breaks circularity
+  const tilePhase = new Float32Array(COLS * ROWS);  // time phase → always changing
+  for (let i = 0; i < COLS * ROWS; i++) {
+    tileNoise[i] = 0.1 + Math.random() * 1.8;
+    tileAngle[i] = (Math.random() - 0.5) * 1.2; // ±0.6 rad angular jitter
+    tilePhase[i] = Math.random() * Math.PI * 2;  // random phase for sin oscillation
+  }
 
   // Phase 1 (0→0.15): header/hints fade. Phase 2 (0.15→1): tiles reveal
   const PHASE2_START = 0.15;
@@ -560,13 +566,19 @@ function startPixelReveal(project) {
         const ddx = mX - cx, ddy = mY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
 
-        // Lens: displace tiles away from cursor, noise breaks symmetry
+        // Lens: displace tiles away from cursor with angular jitter + time oscillation
         let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
           const norm = dist / HOVER_R;
-          const push = (1 - norm) * tileNoise[ci] * MAX_PUSH;
-          tDX = -(ddx / dist) * push;
-          tDY = -(ddy / dist) * push;
+          const t = performance.now() * 0.0005;
+          // Oscillating magnitude — never freezes even during scroll
+          const timeScale = 0.55 + Math.sin(t + tilePhase[ci]) * 0.45;
+          const push = (1 - norm) * tileNoise[ci] * timeScale * MAX_PUSH;
+          // Jittered angle — breaks circular shape
+          const baseAngle = Math.atan2(-ddy, -ddx);
+          const angle = baseAngle + tileAngle[ci];
+          tDX = Math.cos(angle) * push;
+          tDY = Math.sin(angle) * push;
         }
         cellDX[ci] += (tDX - cellDX[ci]) * 0.13;
         cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
