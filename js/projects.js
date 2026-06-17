@@ -445,8 +445,8 @@ function startPixelReveal(project) {
   const PHASE2_START = 0.15;
   const TEX_MULT = 2.5;
 
-  // Canvas = full viewport width, slightly taller for top/bottom expansion zones
-  const W = window.innerWidth;
+  // Canvas = 90vw, slightly taller than before (64vh) for top/bottom expansion
+  const W = canvas.offsetWidth || window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
   canvas.height = H;
@@ -454,13 +454,8 @@ function startPixelReveal(project) {
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
 
-  // Inner zone = central 90vw × 52/64 of height; edges are expansion zones
-  const INNER_COL0 = Math.floor(W * 0.05 / PX);
-  const INNER_COL1 = COLS - INNER_COL0;
-  const INNER_PX_W = (INNER_COL1 - INNER_COL0) * PX;
-
-  // Top/bottom edge rows (6/64 of canvas height on each side)
-  const INNER_ROW0 = Math.floor(H * 0.094 / PX); // ~6vh / 64vh
+  // Top/bottom edge rows (~6vh / 64vh on each side = ~9% of height)
+  const INNER_ROW0 = Math.round(ROWS * 0.094);
   const INNER_ROW1 = ROWS - INNER_ROW0;
 
   const cellDX      = new Float32Array(COLS * ROWS);
@@ -495,13 +490,13 @@ function startPixelReveal(project) {
     } else {
       const texH = Math.round(H * TEX_MULT);
       const oc   = document.createElement('canvas');
-      oc.width = INNER_PX_W; oc.height = texH;
+      oc.width = W; oc.height = texH;
       const colors = project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f'];
       const g = oc.getContext('2d').createLinearGradient(0, 0, 0, texH);
       colors.forEach((c, i) => g.addColorStop(i / Math.max(1, colors.length - 1), c));
       oc.getContext('2d').fillStyle = g;
-      oc.getContext('2d').fillRect(0, 0, INNER_PX_W, texH);
-      tex = oc; texNW = INNER_PX_W; texNH = texH;
+      oc.getContext('2d').fillRect(0, 0, W, texH);
+      tex = oc; texNW = W; texNH = texH;
     }
   }
 
@@ -541,8 +536,8 @@ function startPixelReveal(project) {
     prevMasterProg = masterProg;
     scrollTime += scrollVel * 25;
 
-    // expandProg: fast attack when scrolling, slow decay when stopped
-    const scrolling = scrollVel > 0.00008;
+    // expandProg: only active during image-scroll phase (after full reveal)
+    const scrolling = scrollVel > 0.00008 && masterProg > 0.95;
     expandProg += ((scrolling ? 1 : 0) - expandProg) * (scrolling ? 0.12 : 0.035);
 
     // Smooth mouse position — lens lags behind cursor
@@ -558,8 +553,8 @@ function startPixelReveal(project) {
     const p2      = Math.max(0, Math.min(1, (rp - PHASE2_START) / (1 - PHASE2_START)));
     const imgT    = Math.max(0, Math.min(1, (masterProg - 1) / 3));
 
-    // Image coordinate scale: inner zone canvas px → image px
-    const sc      = texNW / INNER_PX_W;
+    // Image coordinate scale
+    const sc      = texNW / W;
     const visH    = H * sc;
     const srcYOff = imgT * Math.max(0, texNH - visH);
 
@@ -575,27 +570,28 @@ function startPixelReveal(project) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
 
-        // Top/bottom edge rows: only appear during scroll (expandProg)
+        // Top/bottom edge rows: only appear during image-scroll phase via expandProg
         const isTop    = row < INNER_ROW0;
         const isBottom = row >= INNER_ROW1;
         if (isTop || isBottom) {
-          // Distance from inner zone boundary (0=adjacent, 1=outermost)
+          if (masterProg < 0.95) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+          // Distance from inner boundary (0=adjacent, 1=outermost)
           const edgeDist = isTop
             ? (INNER_ROW0 - 1 - row) / Math.max(1, INNER_ROW0)
             : (row - INNER_ROW1) / Math.max(1, INNER_ROW0);
           const thresh = edgeDist * (0.35 + tileEdgeN[ci] * 0.65);
-          if (expandProg < thresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+          if (expandProg <= thresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
         }
 
-        // Reveal wave: bottom→top within inner zone only, with per-tile scatter
-        const innerRow  = Math.max(0, Math.min(INNER_ROW1 - INNER_ROW0 - 1, row - INNER_ROW0));
-        const innerRows = Math.max(1, INNER_ROW1 - INNER_ROW0 - 1);
-        const rowNorm   = innerRow / innerRows;
-        const scatter   = (tileRevealN[ci] - 0.5) * 0.25;
-        const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
-        if (!isTop && !isBottom && p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-        // Edge rows use p2 fully (they appear via expandProg only)
-        if ((isTop || isBottom) && p2 < 0.05) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        // Reveal wave: bottom→top within inner zone, with per-tile scatter
+        if (!isTop && !isBottom) {
+          const innerRow  = Math.max(0, Math.min(INNER_ROW1 - INNER_ROW0 - 1, row - INNER_ROW0));
+          const innerRows = Math.max(1, INNER_ROW1 - INNER_ROW0 - 1);
+          const rowNorm   = innerRow / innerRows;
+          const scatter   = (tileRevealN[ci] - 0.5) * 0.25;
+          const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
+          if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        }
 
         const baseX = col * PX;
         const baseY = row * PX;
@@ -624,11 +620,10 @@ function startPixelReveal(project) {
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
 
-        // Image coords: relative to inner zone, clamped for edge tiles
+        // Image coords: X maps 1:1 with canvas, Y relative to inner zone top
         const nPX  = PX * sc;
-        const innerX = (col - INNER_COL0) * PX;
+        const nX   = baseX * sc;
         const innerY = (row - INNER_ROW0) * PX;
-        const nX  = Math.max(0, Math.min(texNW - nPX, innerX * sc));
         const nY  = Math.max(0, Math.min(texNH - nPX, innerY * sc + srcYOff));
 
         if (hasDrift) {

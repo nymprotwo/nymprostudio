@@ -1895,11 +1895,11 @@ body[data-page="playground"] .cpop {
 /* Canvas pixel window — fixed position in lower screen */
 .proj-pixel-canvas {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 5vw;
+  right: 5vw;
   top: 50%;
   transform: translateY(-50%);
-  width: 100vw;
+  width: 90vw;
   height: 64vh;
   display: block;
   cursor: crosshair;
