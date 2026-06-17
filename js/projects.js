@@ -566,17 +566,20 @@ function startPixelReveal(project) {
         const ddx = mX - cx, ddy = mY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
 
-        // Lens: displace tiles away from cursor with angular jitter + time oscillation
+        // Lens: center pushes hard straight out, edges get chaotic jitter
         let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
           const norm = dist / HOVER_R;
+          const edgeFactor = norm * norm; // 0 at cursor, 1 at edge
+
           const t = performance.now() * 0.0005;
-          // Oscillating magnitude — never freezes even during scroll
-          const timeScale = 0.55 + Math.sin(t + tilePhase[ci]) * 0.45;
+          // Time oscillation only at edges, center stays strong
+          const timeScale = 1.0 - edgeFactor * (0.5 - Math.sin(t + tilePhase[ci]) * 0.5);
+
           const push = (1 - norm) * tileNoise[ci] * timeScale * MAX_PUSH;
-          // Jittered angle — breaks circular shape
+          // Angle jitter grows toward edges — center is clean, edges chaotic
           const baseAngle = Math.atan2(-ddy, -ddx);
-          const angle = baseAngle + tileAngle[ci];
+          const angle = baseAngle + tileAngle[ci] * edgeFactor;
           tDX = Math.cos(angle) * push;
           tDY = Math.sin(angle) * push;
         }
