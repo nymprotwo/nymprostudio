@@ -463,31 +463,8 @@ function startPixelReveal(project) {
   const tileNoise   = new Float32Array(COLS * ROWS);
   const tileAngle   = new Float32Array(COLS * ROWS);
   const tilePhase   = new Float32Array(COLS * ROWS);
-  const tileEdgeN   = new Float32Array(COLS * ROWS); // B/C edge scatter threshold
-  const tileRevealN = new Float32Array(COLS * ROWS); // reveal-wave scatter
-
-  // Zone A: 4-state brightness per tile (alive, organic look)
-  // States: 0=invisible 1=very dim 2=dim 3=full
-  const STATES = [0.0, 0.35, 0.70, 1.0];
-  const tileStateTgt = new Uint8Array(COLS * ROWS);
-  const tileStateCur = new Float32Array(COLS * ROWS);
-
-  // Edginess: 0=center of A zone, 1=outer edge
-  function edginessOf(row, col) {
-    const rn = (row - INNER_ROW0) / Math.max(1, INNER_ROW1 - INNER_ROW0 - 1);
-    const cn = col / Math.max(1, COLS - 1);
-    return Math.max(Math.abs(rn - 0.5) * 2, Math.abs(cn - 0.5) * 2);
-  }
-  function pickState(edge) {
-    const r = Math.random();
-    if (edge > 0.75) { // far edge — lots of gaps
-      if (r < 0.25) return 0; if (r < 0.48) return 1; if (r < 0.72) return 2; return 3;
-    } else if (edge > 0.40) { // mid
-      if (r < 0.08) return 0; if (r < 0.22) return 1; if (r < 0.42) return 2; return 3;
-    } else { // center — mostly visible
-      if (r < 0.02) return 0; if (r < 0.08) return 1; if (r < 0.20) return 2; return 3;
-    }
-  }
+  const tileEdgeN   = new Float32Array(COLS * ROWS); // vertical edge scatter threshold
+  const tileRevealN = new Float32Array(COLS * ROWS); // reveal-wave scatter offset
 
   for (let i = 0; i < COLS * ROWS; i++) {
     tileNoise[i]   = 0.1 + Math.random() * 1.8;
@@ -496,22 +473,11 @@ function startPixelReveal(project) {
     tileEdgeN[i]   = Math.random();
     tileRevealN[i] = Math.random();
   }
-  // Initialize zone A states
-  for (let row = INNER_ROW0; row < INNER_ROW1; row++) {
-    for (let col = 0; col < COLS; col++) {
-      const ci = row * COLS + col;
-      const s = pickState(edginessOf(row, col));
-      tileStateTgt[ci] = s;
-      tileStateCur[ci] = STATES[s];
-    }
-  }
 
   let masterTgt = 0, masterProg = 0;
   let prevMasterProg = 0;
   let scrollTime = 0;
-  let expandDown = 0; // grows when scrolling down (zone C)
-  let expandUp   = 0; // grows when scrolling up   (zone B)
-  let wheelDir   = 0; // +1=down -1=up
+  let expandProg = 0; // 0=normal 1=fully expanded during scroll
   // Raw mouse position, updated on mousemove
   let mX = -9999, mY = -9999;
   // Smoothed position used for lens — lags behind cursor
@@ -548,7 +514,6 @@ function startPixelReveal(project) {
     e.stopImmediatePropagation();
     const speed = masterTgt < 1 ? 0.003 : 0.0007;
     masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * speed));
-    wheelDir  = Math.sign(e.deltaY);
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
@@ -562,7 +527,6 @@ function startPixelReveal(project) {
 
   const ctx = canvas.getContext('2d');
   const hoverTiles = [];
-  let frameCount = 0;
 
   function loop() {
     gdRaf = requestAnimationFrame(loop);
@@ -571,45 +535,14 @@ function startPixelReveal(project) {
     const scrollVel = Math.abs(masterProg - prevMasterProg);
     prevMasterProg = masterProg;
     scrollTime += scrollVel * 25;
-    frameCount++;
 
-    // ── Zone A: alive brightness — update targets for a few random tiles per frame
-    if (masterProg > 0.9) {
-      const innerRows = INNER_ROW1 - INNER_ROW0;
-      const updateN = Math.ceil(innerRows * COLS * 0.015); // ~1.5% per frame
-      for (let k = 0; k < updateN; k++) {
-        const row = INNER_ROW0 + Math.floor(Math.random() * innerRows);
-        const col = Math.floor(Math.random() * COLS);
-        const ci  = row * COLS + col;
-        tileStateTgt[ci] = pickState(edginessOf(row, col));
-      }
-    }
-    // Ease all zone A states toward targets
-    for (let row = INNER_ROW0; row < INNER_ROW1; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const ci = row * COLS + col;
-        tileStateCur[ci] += (STATES[tileStateTgt[ci]] - tileStateCur[ci]) * 0.025;
-      }
-    }
+    // expandProg: only active during image-scroll phase (after full reveal)
+    const scrolling = scrollVel > 0.00008 && masterProg > 0.95;
+    expandProg += ((scrolling ? 1 : 0) - expandProg) * (scrolling ? 0.12 : 0.035);
 
-    // ── B/C expand: direction-sensitive, only after full reveal ──
-    const revealed = masterProg > 0.95;
-    const scrolling = scrollVel > 0.00008 && revealed;
-    const DECAY = 0.05;
-    if (scrolling && wheelDir > 0) {        // scroll down → zone C (bottom)
-      expandDown = Math.min(1, expandDown + scrollVel * 80);
-      expandUp   = Math.max(0, expandUp   - DECAY);
-    } else if (scrolling && wheelDir < 0) { // scroll up → zone B (top)
-      expandUp   = Math.min(1, expandUp   + scrollVel * 80);
-      expandDown = Math.max(0, expandDown - DECAY);
-    } else {
-      expandDown *= (1 - DECAY);
-      expandUp   *= (1 - DECAY);
-    }
-
-    // Smooth mouse — lens lags behind cursor
+    // Smooth mouse position — lens lags behind cursor
     if (mX > 0) {
-      if (smoothMX < 0) { smoothMX = mX; smoothMY = mY; }
+      if (smoothMX < 0) { smoothMX = mX; smoothMY = mY; } // snap on first enter
       smoothMX += (mX - smoothMX) * 0.07;
       smoothMY += (mY - smoothMY) * 0.07;
     } else {
@@ -619,6 +552,8 @@ function startPixelReveal(project) {
     const rp      = Math.min(1, masterProg);
     const p2      = Math.max(0, Math.min(1, (rp - PHASE2_START) / (1 - PHASE2_START)));
     const imgT    = Math.max(0, Math.min(1, (masterProg - 1) / 3));
+
+    // Image coordinate scale
     const sc      = texNW / W;
     const visH    = H * sc;
     const srcYOff = imgT * Math.max(0, texNH - visH);
@@ -635,24 +570,20 @@ function startPixelReveal(project) {
       for (let col = 0; col < COLS; col++) {
         const ci = row * COLS + col;
 
+        // Top/bottom edge rows: only appear during image-scroll phase via expandProg
         const isTop    = row < INNER_ROW0;
         const isBottom = row >= INNER_ROW1;
-
-        // Zone B (top) and Zone C (bottom): appear only during image-scroll phase
         if (isTop || isBottom) {
-          if (!revealed) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-          // Which expand drives this row?
-          const expand = isTop ? expandUp : expandDown;
-          if (expand < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-          // Scatter threshold: tiles nearest inner boundary appear first
+          if (masterProg < 0.95) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+          // Distance from inner boundary (0=adjacent, 1=outermost)
           const edgeDist = isTop
             ? (INNER_ROW0 - 1 - row) / Math.max(1, INNER_ROW0)
             : (row - INNER_ROW1) / Math.max(1, INNER_ROW0);
-          const thresh = edgeDist * (0.3 + tileEdgeN[ci] * 0.7);
-          if (expand <= thresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+          const thresh = edgeDist * (0.35 + tileEdgeN[ci] * 0.65);
+          if (expandProg <= thresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
         }
 
-        // Zone A: reveal wave (bottom→top, scatter) + brightness state
+        // Reveal wave: bottom→top within inner zone, with per-tile scatter
         if (!isTop && !isBottom) {
           const innerRow  = Math.max(0, Math.min(INNER_ROW1 - INNER_ROW0 - 1, row - INNER_ROW0));
           const innerRows = Math.max(1, INNER_ROW1 - INNER_ROW0 - 1);
@@ -686,24 +617,19 @@ function startPixelReveal(project) {
         const dx = cellDX[ci], dy = cellDY[ci];
         const hasDrift = dx * dx + dy * dy > 16;
 
-        // Zone A brightness (4 states); B/C zones always full alpha
-        const alpha = (!isTop && !isBottom) ? tileStateCur[ci] : 1.0;
-        if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; } // invisible tile
-
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
 
+        // Image coords: X maps 1:1 with canvas, Y relative to inner zone top
         const nPX  = PX * sc;
         const nX   = baseX * sc;
         const innerY = (row - INNER_ROW0) * PX;
         const nY  = Math.max(0, Math.min(texNH - nPX, innerY * sc + srcYOff));
 
         if (hasDrift) {
-          hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX, alpha });
+          hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX });
         } else {
-          ctx.globalAlpha = alpha;
           ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
-          ctx.globalAlpha = 1;
         }
       }
     }
@@ -711,12 +637,10 @@ function startPixelReveal(project) {
     // ── Pass 2: displaced tiles, farthest first ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
     const DCELL = CELL - 1;
-    for (const { baseX, baseY, dx, dy, nX, nY, nPX, alpha } of hoverTiles) {
-      ctx.globalAlpha = alpha;
+    for (const { baseX, baseY, dx, dy, nX, nY, nPX } of hoverTiles) {
       ctx.drawImage(tex, nX, nY, nPX, nPX,
         baseX + dx + 1, baseY + dy + 1, DCELL, DCELL);
     }
-    ctx.globalAlpha = 1;
   }
 
   gdRaf = requestAnimationFrame(loop);
