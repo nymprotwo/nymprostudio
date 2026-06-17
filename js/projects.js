@@ -586,27 +586,20 @@ function startPixelReveal(project) {
         const nY   = baseY * sc + srcYOff;
         const nPX  = PX * sc;
 
-        // Alpha for edge tiles: fade out outer 25% of HOVER_R
-        const edgeAlpha = dist < HOVER_R
-          ? Math.min(1, (HOVER_R - dist) / (HOVER_R * 0.25))
-          : 1;
-
         if (hasDrift) {
-          hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX, edgeAlpha });
+          hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX });
         } else {
           ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
         }
       }
     }
 
-    // ── Pass 2: displaced tiles, farthest first, alpha fade at edges ──
+    // ── Pass 2: displaced tiles, farthest first, fully opaque ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
-    for (const { baseX, baseY, dx, dy, nX, nY, nPX, edgeAlpha } of hoverTiles) {
-      ctx.globalAlpha = edgeAlpha;
+    for (const { baseX, baseY, dx, dy, nX, nY, nPX } of hoverTiles) {
       ctx.drawImage(tex, nX, nY, nPX, nPX,
         baseX + dx + GAP / 2, baseY + dy + GAP / 2, CELL, CELL);
     }
-    ctx.globalAlpha = 1;
   }
 
   gdRaf = requestAnimationFrame(loop);
