@@ -457,7 +457,7 @@ function startPixelReveal(project) {
 
   // Per-tile noise — seeded once, breaks perfect symmetry
   const tileNoise = new Float32Array(COLS * ROWS);
-  for (let i = 0; i < COLS * ROWS; i++) tileNoise[i] = 0.4 + Math.random() * 0.6;
+  for (let i = 0; i < COLS * ROWS; i++) tileNoise[i] = 0.05 + Math.random() * 1.75;
 
   // Phase 1 (0→0.15): header/hints fade. Phase 2 (0.15→1): tiles reveal
   const PHASE2_START = 0.15;
@@ -596,9 +596,10 @@ function startPixelReveal(project) {
 
     // ── Pass 2: displaced tiles, farthest first, fully opaque ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
+    const DCELL = CELL - 1; // slightly smaller → always a gap between adjacent displaced tiles
     for (const { baseX, baseY, dx, dy, nX, nY, nPX } of hoverTiles) {
       ctx.drawImage(tex, nX, nY, nPX, nPX,
-        baseX + dx + GAP / 2, baseY + dy + GAP / 2, CELL, CELL);
+        baseX + dx + 1, baseY + dy + 1, DCELL, DCELL);
     }
   }
 
