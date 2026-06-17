@@ -526,11 +526,19 @@ function startPixelReveal(project) {
   const ctx = canvas.getContext('2d');
   const hoverTiles = [];
 
+  let prevMasterProg = 0;
+  let scrollTime = 0; // accumulates during scroll, drives lens animation
+
   function loop() {
     gdRaf = requestAnimationFrame(loop);
 
     // Single eased value: 0→1 = tile reveal, 1→2 = image scroll
     masterProg += (masterTgt - masterProg) * 0.10;
+
+    // Scroll velocity drives lens animation speed
+    const scrollVel = Math.abs(masterProg - prevMasterProg);
+    prevMasterProg = masterProg;
+    scrollTime += scrollVel * 25; // fast accumulation, decays via sin naturally
 
     const rp = Math.min(1, masterProg);
     const p2 = Math.max(0, Math.min(1, (rp - PHASE2_START) / (1 - PHASE2_START)));
@@ -572,8 +580,8 @@ function startPixelReveal(project) {
           const norm = dist / HOVER_R;
           const edgeFactor = norm * norm; // 0 at cursor, 1 at edge
 
-          const t = performance.now() * 0.0005;
-          // Time oscillation only at edges, center stays strong
+          // scrollTime advances fast during scroll → lens animates even with static mouse
+          const t = performance.now() * 0.0005 + scrollTime;
           const timeScale = 1.0 - edgeFactor * (0.5 - Math.sin(t + tilePhase[ci]) * 0.5);
 
           const push = (1 - norm) * tileNoise[ci] * timeScale * MAX_PUSH;
