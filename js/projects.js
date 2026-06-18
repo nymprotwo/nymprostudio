@@ -440,8 +440,8 @@ function startPixelReveal(project) {
   const PX       = 14;
   const GAP      = 1;
   const CELL     = PX - GAP;
-  const HOVER_R  = 150;
-  const MAX_PUSH = 22;
+  const HOVER_R  = 140;
+  const MAX_PUSH = 5;
   const PHASE2_START = 0.15;
   const TEX_MULT = 2.5;
 
@@ -627,7 +627,7 @@ function startPixelReveal(project) {
         cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
 
         const dx = cellDX[ci], dy = cellDY[ci];
-        const hasDrift = dx * dx + dy * dy > 16;
+        const hasDrift = dx * dx + dy * dy > 0.5;
 
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
@@ -637,23 +637,24 @@ function startPixelReveal(project) {
         const innerY = (row - INNER_ROW0) * PX;
         const nY     = Math.max(0, Math.min(texNH - nPX, innerY * sc + srcYOff));
 
+        // Always draw tile at base position (no holes)
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+        ctx.globalAlpha = 1;
+
+        // If displaced, queue for pass 2 overlay
         if (hasDrift) {
           hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX, alpha });
-        } else {
-          ctx.globalAlpha = alpha;
-          ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
-          ctx.globalAlpha = 1;
         }
       }
     }
 
-    // ── Pass 2: displaced tiles, farthest first ──
+    // ── Pass 2: displaced tiles on top, farthest first ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
-    const DCELL = CELL - 1;
     for (const { baseX, baseY, dx, dy, nX, nY, nPX, alpha } of hoverTiles) {
       ctx.globalAlpha = alpha;
       ctx.drawImage(tex, nX, nY, nPX, nPX,
-        baseX + dx + 1, baseY + dy + 1, DCELL, DCELL);
+        baseX + dx + GAP / 2, baseY + dy + GAP / 2, CELL, CELL);
     }
     ctx.globalAlpha = 1;
   }
