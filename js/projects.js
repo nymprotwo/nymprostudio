@@ -7,6 +7,7 @@
 
 import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 import { registerExitHandler }    from './overlays.js?v=28';
+import { startDetailGL }          from './projects-detail-gl.js?v=1';
 
 const PROJECTS = [
   { num:'01', title:'NYMPRO STUDIO',          year:'2026', tags:'IDENTITY / WEB',      grad:'linear-gradient(135deg,#0d1b2a,#1e3a5f,#0a2540)' },
@@ -425,8 +426,13 @@ function openDetail(i) {
   listView.classList.add('is-hidden');
   document.getElementById('proj-back').addEventListener('click', closeDetail);
 
-  // Wait for layout then start pixel reveal
-  setTimeout(() => startPixelReveal(p), 50);
+  // Start Three.js GL detail renderer (yutaabe-style)
+  setTimeout(() => {
+    const cv = document.getElementById('proj-pixel-canvas');
+    if (!cv) return;
+    if (gdCleanup) { gdCleanup(); gdCleanup = null; }
+    gdCleanup = startDetailGL(cv, p);
+  }, 50);
 }
 
 // ── Pixel grid reveal (yutaabe-style) ─────────────────

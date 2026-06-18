@@ -1894,20 +1894,20 @@ body[data-page="playground"] .cpop {
 /* ── Project site window ── */
 /* Canvas pixel window — fixed position in lower screen */
 .proj-pixel-canvas {
-  position: absolute;
-  left: 5vw;
-  right: 5vw;
-  top: calc(50% + 2vw);
-  transform: translateY(-50%);
-  width: 90vw;
-  height: calc(2 * 16vw * 0.88);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   display: block;
   cursor: crosshair;
   z-index: 20;
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
 }
 .proj-pixel-canvas.is-revealing {
   opacity: 1;
+  pointer-events: auto;
 }
 
