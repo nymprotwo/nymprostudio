@@ -464,26 +464,9 @@ function startPixelReveal(project) {
   const tileEdgeN   = new Float32Array(COLS * ROWS);
   const tileRevealN = new Float32Array(COLS * ROWS);
 
-  // Edge tear: only outer 2 rows, sparse random missing/dim pixels
-  const EDGE_ROWS   = 2;
-  const ALPHA_STATES = [0.0, 0.3, 0.6, 1.0];
-  const tileAlphaTgt = new Uint8Array(COLS * ROWS);   // index into ALPHA_STATES
-  const tileAlphaCur = new Float32Array(COLS * ROWS).fill(1.0);
-
-  // All tiles default to fully visible (index 3 = 1.0)
-  tileAlphaTgt.fill(3);
-
-  function pickTearAlpha(row0) {
-    // row0=0 outer edge, row0=1 one inside
-    const r = Math.random();
-    if (row0 === 0) {
-      // outer: ~40% gone, ~25% dim, ~20% medium, ~15% full
-      if (r < 0.40) return 0; if (r < 0.65) return 1; if (r < 0.85) return 2; return 3;
-    } else {
-      // inner: mostly full, occasional dips
-      if (r < 0.08) return 0; if (r < 0.18) return 1; if (r < 0.30) return 2; return 3;
-    }
-  }
+  // Edge tear: static jagged top/bottom — fixed per-session, no animation
+  // tileEdgeAlpha[ci] = 0..1, only set for row 0 and row ROWS-1
+  const tileEdgeAlpha = new Float32Array(COLS * ROWS).fill(1.0);
 
   for (let i = 0; i < COLS * ROWS; i++) {
     tileNoise[i]   = 0.1 + Math.random() * 1.8;
@@ -492,15 +475,15 @@ function startPixelReveal(project) {
     tileEdgeN[i]   = Math.random();
     tileRevealN[i] = Math.random();
   }
-  // Init outer 2 edge rows (top and bottom)
-  for (let d = 0; d < EDGE_ROWS; d++) {
-    for (let col = 0; col < COLS; col++) {
-      const ciT = d * COLS + col;
-      const ciB = (ROWS - 1 - d) * COLS + col;
-      const s = pickTearAlpha(d);
-      tileAlphaTgt[ciT] = s; tileAlphaCur[ciT] = ALPHA_STATES[s];
-      tileAlphaTgt[ciB] = s; tileAlphaCur[ciB] = ALPHA_STATES[s];
-    }
+  // Generate static tear pattern: outer row only
+  // Each pixel independently: 35% invisible, 20% dim, 15% medium, 30% full
+  for (let col = 0; col < COLS; col++) {
+    const setTear = (ci) => {
+      const r = Math.random();
+      tileEdgeAlpha[ci] = r < 0.35 ? 0.0 : r < 0.55 ? 0.3 : r < 0.70 ? 0.6 : 1.0;
+    };
+    setTear(0 * COLS + col);               // top row
+    setTear((ROWS - 1) * COLS + col);      // bottom row
   }
 
   let masterTgt = 0, masterProg = 0;
@@ -594,24 +577,7 @@ function startPixelReveal(project) {
     if (!tex) return;
     hoverTiles.length = 0;
 
-    // ── Animate edge tear: ~3 random pixels per frame change state ──
-    for (let k = 0; k < 3; k++) {
-      const isTop = Math.random() < 0.5;
-      const d     = Math.floor(Math.random() * EDGE_ROWS); // 0 or 1
-      const col   = Math.floor(Math.random() * COLS);
-      const row   = isTop ? d : ROWS - 1 - d;
-      const ci    = row * COLS + col;
-      tileAlphaTgt[ci] = pickTearAlpha(d);
-    }
-    // Ease outer 2 rows toward targets
-    for (let d = 0; d < EDGE_ROWS; d++) {
-      for (let col = 0; col < COLS; col++) {
-        const ciT = d * COLS + col;
-        const ciB = (ROWS - 1 - d) * COLS + col;
-        tileAlphaCur[ciT] += (ALPHA_STATES[tileAlphaTgt[ciT]] - tileAlphaCur[ciT]) * 0.04;
-        tileAlphaCur[ciB] += (ALPHA_STATES[tileAlphaTgt[ciB]] - tileAlphaCur[ciB]) * 0.04;
-      }
-    }
+    // Edge tear is static — no per-frame animation needed
 
     // ── Draw revealed tiles ──
     for (let row = 0; row < ROWS; row++) {
@@ -624,9 +590,8 @@ function startPixelReveal(project) {
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
         if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
-        // Edge tear: outer 2 rows get sparse brightness, rest always 1.0
-        const isEdge = row < EDGE_ROWS || row >= ROWS - EDGE_ROWS;
-        const alpha  = isEdge ? tileAlphaCur[ci] : 1.0;
+        // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
+        const alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
         if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         const baseX = col * PX;
