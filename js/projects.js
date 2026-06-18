@@ -464,20 +464,24 @@ function startPixelReveal(project) {
   const tileEdgeN   = new Float32Array(COLS * ROWS);
   const tileRevealN = new Float32Array(COLS * ROWS);
 
-  // Edge fade: top/bottom rows get 4-state alpha (0 / 0.3 / 0.6 / 1.0)
-  const EDGE_ROWS   = 5;
+  // Edge tear: only outer 2 rows, sparse random missing/dim pixels
+  const EDGE_ROWS   = 2;
   const ALPHA_STATES = [0.0, 0.3, 0.6, 1.0];
   const tileAlphaTgt = new Uint8Array(COLS * ROWS);   // index into ALPHA_STATES
   const tileAlphaCur = new Float32Array(COLS * ROWS).fill(1.0);
 
-  function pickEdgeAlpha(depth) { // depth 0=outer 1=inner boundary
+  // All tiles default to fully visible (index 3 = 1.0)
+  tileAlphaTgt.fill(3);
+
+  function pickTearAlpha(row0) {
+    // row0=0 outer edge, row0=1 one inside
     const r = Math.random();
-    if (depth < 0.3) {
-      if (r < 0.42) return 0; if (r < 0.72) return 1; if (r < 0.90) return 2; return 3;
-    } else if (depth < 0.65) {
-      if (r < 0.15) return 0; if (r < 0.40) return 1; if (r < 0.70) return 2; return 3;
+    if (row0 === 0) {
+      // outer: ~40% gone, ~25% dim, ~20% medium, ~15% full
+      if (r < 0.40) return 0; if (r < 0.65) return 1; if (r < 0.85) return 2; return 3;
     } else {
-      if (r < 0.04) return 0; if (r < 0.15) return 1; if (r < 0.35) return 2; return 3;
+      // inner: mostly full, occasional dips
+      if (r < 0.08) return 0; if (r < 0.18) return 1; if (r < 0.30) return 2; return 3;
     }
   }
 
@@ -488,16 +492,14 @@ function startPixelReveal(project) {
     tileEdgeN[i]   = Math.random();
     tileRevealN[i] = Math.random();
   }
-  // Init edge tile alphas
-  for (let row = 0; row < ROWS; row++) {
-    const isT = row < EDGE_ROWS, isB = row >= ROWS - EDGE_ROWS;
-    if (!isT && !isB) continue;
-    const depth = isT ? row / EDGE_ROWS : (ROWS - 1 - row) / EDGE_ROWS;
+  // Init outer 2 edge rows (top and bottom)
+  for (let d = 0; d < EDGE_ROWS; d++) {
     for (let col = 0; col < COLS; col++) {
-      const ci = row * COLS + col;
-      const s = pickEdgeAlpha(depth);
-      tileAlphaTgt[ci] = s;
-      tileAlphaCur[ci] = ALPHA_STATES[s];
+      const ciT = d * COLS + col;
+      const ciB = (ROWS - 1 - d) * COLS + col;
+      const s = pickTearAlpha(d);
+      tileAlphaTgt[ciT] = s; tileAlphaCur[ciT] = ALPHA_STATES[s];
+      tileAlphaTgt[ciB] = s; tileAlphaCur[ciB] = ALPHA_STATES[s];
     }
   }
 
@@ -592,29 +594,22 @@ function startPixelReveal(project) {
     if (!tex) return;
     hoverTiles.length = 0;
 
-    // ── Animate edge tile alphas (~5% of edge tiles change target per frame) ──
-    const edgeUpdateN = Math.ceil(EDGE_ROWS * COLS * 0.05);
-    for (let k = 0; k < edgeUpdateN; k++) {
+    // ── Animate edge tear: ~3 random pixels per frame change state ──
+    for (let k = 0; k < 3; k++) {
       const isTop = Math.random() < 0.5;
-      const row = isTop
-        ? Math.floor(Math.random() * EDGE_ROWS)
-        : ROWS - 1 - Math.floor(Math.random() * EDGE_ROWS);
-      const col = Math.floor(Math.random() * COLS);
-      const ci = row * COLS + col;
-      const depth = isTop ? row / EDGE_ROWS : (ROWS - 1 - row) / EDGE_ROWS;
-      tileAlphaTgt[ci] = pickEdgeAlpha(depth);
+      const d     = Math.floor(Math.random() * EDGE_ROWS); // 0 or 1
+      const col   = Math.floor(Math.random() * COLS);
+      const row   = isTop ? d : ROWS - 1 - d;
+      const ci    = row * COLS + col;
+      tileAlphaTgt[ci] = pickTearAlpha(d);
     }
-    // Ease toward targets for all edge rows
-    for (let row = 0; row < EDGE_ROWS; row++) {
+    // Ease outer 2 rows toward targets
+    for (let d = 0; d < EDGE_ROWS; d++) {
       for (let col = 0; col < COLS; col++) {
-        const ci = row * COLS + col;
-        tileAlphaCur[ci] += (ALPHA_STATES[tileAlphaTgt[ci]] - tileAlphaCur[ci]) * 0.04;
-      }
-    }
-    for (let row = ROWS - EDGE_ROWS; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const ci = row * COLS + col;
-        tileAlphaCur[ci] += (ALPHA_STATES[tileAlphaTgt[ci]] - tileAlphaCur[ci]) * 0.04;
+        const ciT = d * COLS + col;
+        const ciB = (ROWS - 1 - d) * COLS + col;
+        tileAlphaCur[ciT] += (ALPHA_STATES[tileAlphaTgt[ciT]] - tileAlphaCur[ciT]) * 0.04;
+        tileAlphaCur[ciB] += (ALPHA_STATES[tileAlphaTgt[ciB]] - tileAlphaCur[ciB]) * 0.04;
       }
     }
 
@@ -629,7 +624,7 @@ function startPixelReveal(project) {
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
         if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
-        // Edge alpha (top/bottom EDGE_ROWS rows get 4-state brightness)
+        // Edge tear: outer 2 rows get sparse brightness, rest always 1.0
         const isEdge = row < EDGE_ROWS || row >= ROWS - EDGE_ROWS;
         const alpha  = isEdge ? tileAlphaCur[ci] : 1.0;
         if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
