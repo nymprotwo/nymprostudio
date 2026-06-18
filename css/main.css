@@ -1900,7 +1900,7 @@ body[data-page="playground"] .cpop {
   top: 50%;
   transform: translateY(-50%);
   width: 90vw;
-  height: 64vh;
+  height: calc(2 * 16vw * 0.88);
   display: block;
   cursor: crosshair;
   z-index: 20;
