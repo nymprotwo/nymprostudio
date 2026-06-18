@@ -476,14 +476,25 @@ function startPixelReveal(project) {
     tileRevealN[i] = Math.random();
   }
   // Generate static tear pattern: outer row only
-  // Each pixel: ~10% gone, 8% dim, 7% medium, 75% full — subtle torn edge
-  for (let col = 0; col < COLS; col++) {
-    const setTear = (ci) => {
+  // Torn edge: pick ~20 random column positions, knock out 1-2 pixels deep
+  // All other pixels stay fully visible (alpha=1.0 by default)
+  const tearCount = Math.round(COLS * 0.18); // ~18% of cols get a chip
+  for (let k = 0; k < tearCount; k++) {
+    const col = Math.floor(Math.random() * COLS);
+    // Top edge chip
+    const depthT = Math.random() < 0.5 ? 1 : 2; // 1 or 2 pixels deep
+    for (let d = 0; d < depthT; d++) {
+      const ci = d * COLS + col;
       const r = Math.random();
-      tileEdgeAlpha[ci] = r < 0.10 ? 0.0 : r < 0.18 ? 0.3 : r < 0.25 ? 0.6 : 1.0;
-    };
-    setTear(0 * COLS + col);               // top row
-    setTear((ROWS - 1) * COLS + col);      // bottom row
+      tileEdgeAlpha[ci] = r < 0.5 ? 0.0 : r < 0.75 ? 0.3 : 0.6;
+    }
+    // Bottom edge chip
+    const depthB = Math.random() < 0.5 ? 1 : 2;
+    for (let d = 0; d < depthB; d++) {
+      const ci = (ROWS - 1 - d) * COLS + col;
+      const r = Math.random();
+      tileEdgeAlpha[ci] = r < 0.5 ? 0.0 : r < 0.75 ? 0.3 : 0.6;
+    }
   }
 
   let masterTgt = 0, masterProg = 0;
