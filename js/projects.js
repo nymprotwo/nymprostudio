@@ -445,18 +445,26 @@ function startPixelReveal(project) {
   const PHASE2_START = 0.15;
   const TEX_MULT = 2.5;
 
-  // Canvas = 90vw, slightly taller than before (64vh) for top/bottom expansion
+  // Size canvas to exactly cover the title text
+  const titleEl = detailView.querySelector('.proj-detail-title');
   const W = canvas.offsetWidth || window.innerWidth;
-  const H = canvas.offsetHeight || window.innerHeight;
+  let H = canvas.offsetHeight || window.innerHeight;
+  if (titleEl) {
+    const tRect = titleEl.getBoundingClientRect();
+    const dvRect = detailView.getBoundingClientRect();
+    H = Math.round(tRect.height);
+    canvas.style.top       = (tRect.top - dvRect.top) + 'px';
+    canvas.style.transform = 'none';
+    canvas.style.height    = H + 'px';
+  }
   canvas.width  = W;
   canvas.height = H;
 
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
 
-  // Top/bottom edge rows (~6vh / 64vh on each side = ~9% of height)
-  const INNER_ROW0 = Math.round(ROWS * 0.094);
-  const INNER_ROW1 = ROWS - INNER_ROW0;
+  const INNER_ROW0 = 0;
+  const INNER_ROW1 = ROWS;
 
   const cellDX      = new Float32Array(COLS * ROWS);
   const cellDY      = new Float32Array(COLS * ROWS);
