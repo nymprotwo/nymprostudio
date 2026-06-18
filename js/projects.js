@@ -476,11 +476,11 @@ function startPixelReveal(project) {
     tileRevealN[i] = Math.random();
   }
   // Generate static tear pattern: outer row only
-  // Each pixel independently: 35% invisible, 20% dim, 15% medium, 30% full
+  // Each pixel: ~10% gone, 8% dim, 7% medium, 75% full — subtle torn edge
   for (let col = 0; col < COLS; col++) {
     const setTear = (ci) => {
       const r = Math.random();
-      tileEdgeAlpha[ci] = r < 0.35 ? 0.0 : r < 0.55 ? 0.3 : r < 0.70 ? 0.6 : 1.0;
+      tileEdgeAlpha[ci] = r < 0.10 ? 0.0 : r < 0.18 ? 0.3 : r < 0.25 ? 0.6 : 1.0;
     };
     setTear(0 * COLS + col);               // top row
     setTear((ROWS - 1) * COLS + col);      // bottom row
