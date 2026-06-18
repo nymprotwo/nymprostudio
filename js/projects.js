@@ -453,8 +453,8 @@ function startPixelReveal(project) {
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
 
-  const INNER_ROW0 = Math.round(ROWS * 0.094);
-  const INNER_ROW1 = ROWS - INNER_ROW0;
+  const INNER_ROW0 = 0;
+  const INNER_ROW1 = ROWS;
 
   const cellDX      = new Float32Array(COLS * ROWS);
   const cellDY      = new Float32Array(COLS * ROWS);
