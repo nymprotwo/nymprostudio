@@ -614,20 +614,15 @@ function startPixelReveal(project) {
         let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
           const norm = dist / HOVER_R;
-          const edgeFactor = norm * norm;
-          const t = performance.now() * 0.0005 + scrollTime;
-          const timeScale = 1.0 - edgeFactor * (0.5 - Math.sin(t + tilePhase[ci]) * 0.5);
-          const push = (1 - norm) * tileNoise[ci] * timeScale * MAX_PUSH;
-          const baseAngle = Math.atan2(-ddy, -ddx);
-          const angle = baseAngle + tileAngle[ci] * edgeFactor;
-          tDX = Math.cos(angle) * push;
-          tDY = Math.sin(angle) * push;
+          const push = (1 - norm) * (1 - norm) * MAX_PUSH;
+          tDX = (-ddx / dist) * push;
+          tDY = (-ddy / dist) * push;
         }
         cellDX[ci] += (tDX - cellDX[ci]) * 0.13;
         cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
 
         const dx = cellDX[ci], dy = cellDY[ci];
-        const hasDrift = dx * dx + dy * dy > 0.5;
+        const hasDrift = dx * dx + dy * dy > 1;
 
         ctx.fillStyle = '#06050A';
         ctx.fillRect(baseX, baseY, PX, PX);
@@ -637,19 +632,17 @@ function startPixelReveal(project) {
         const innerY = (row - INNER_ROW0) * PX;
         const nY     = Math.max(0, Math.min(texNH - nPX, innerY * sc + srcYOff));
 
-        // Always draw tile at base position (no holes)
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
-        ctx.globalAlpha = 1;
-
-        // If displaced, queue for pass 2 overlay
         if (hasDrift) {
           hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX, alpha });
+        } else {
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+          ctx.globalAlpha = 1;
         }
       }
     }
 
-    // ── Pass 2: displaced tiles on top, farthest first ──
+    // ── Pass 2: displaced tiles, farthest first ──
     hoverTiles.sort((a, b) => b.dist - a.dist);
     for (const { baseX, baseY, dx, dy, nX, nY, nPX, alpha } of hoverTiles) {
       ctx.globalAlpha = alpha;
