@@ -566,8 +566,8 @@ function startPixelReveal(project) {
     // Smooth mouse position — lens lags behind cursor
     if (mX > 0) {
       if (smoothMX < 0) { smoothMX = mX; smoothMY = mY; } // snap on first enter
-      smoothMX += (mX - smoothMX) * 0.18;
-      smoothMY += (mY - smoothMY) * 0.18;
+      smoothMX += (mX - smoothMX) * 0.10;
+      smoothMY += (mY - smoothMY) * 0.10;
     } else {
       smoothMX = -9999; smoothMY = -9999;
     }
