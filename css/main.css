@@ -1841,6 +1841,8 @@ body[data-page="playground"] .cpop {
   letter-spacing: -0.03em;
   color: #ffffff;
   margin: 0;
+  position: relative;
+  z-index: 25;
 }
 
 .proj-detail-meta {
