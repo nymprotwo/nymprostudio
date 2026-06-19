@@ -94,10 +94,11 @@ function initGridDistortion(canvas, project, _dv) {
     const oc2 = oc.getContext('2d');
 
     if (imgEl) {
-      // Draw the real screenshot cover-fitted at the top, then repeat/darken below
       const scale = Math.max(W / imgEl.naturalWidth, texH / imgEl.naturalHeight);
       const sw = imgEl.naturalWidth * scale, sh = imgEl.naturalHeight * scale;
-      oc2.drawImage(imgEl, (W - sw) / 2, 0, sw, sh);
+      oc2.filter = 'brightness(1.7)';
+      oc2.drawImage(imgEl, (W - sw) / 2, (texH - sh) / 2, sw, sh);
+      oc2.filter = 'none';
     } else {
       // Gradient fill
       const colors = (project.grad.match(/#[0-9a-fA-F]{3,6}/g) || ['#0d1b2a','#1e3a5f']);
