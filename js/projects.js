@@ -586,7 +586,7 @@ function startPixelReveal(project) {
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = '#06050A';
     ctx.fillRect(0, 0, W, H);
-    canvas.classList.toggle('is-revealing', p2 > 0.005);
+    canvas.classList.toggle('is-revealing', p2 > 0.15);
 
     if (!tex) return;
     hoverTiles.length = 0;

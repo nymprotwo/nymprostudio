@@ -1904,6 +1904,10 @@ body[data-page="playground"] .cpop {
   display: block;
   cursor: crosshair;
   z-index: 20;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.proj-pixel-canvas.is-revealing {
   opacity: 1;
 }
 
