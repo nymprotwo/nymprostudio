@@ -440,8 +440,8 @@ function startPixelReveal(project) {
   const PX       = 14;
   const GAP      = 1;
   const CELL     = PX - GAP;
-  const HOVER_R  = 140;
-  const MAX_PUSH = 5;
+  const HOVER_R  = 150;
+  const MAX_PUSH = 22;
   const PHASE2_START = 0.15;
   const TEX_MULT = 2.5;
 
@@ -549,7 +549,7 @@ function startPixelReveal(project) {
   canvas.addEventListener('mouseleave', onML);
 
   const ctx = canvas.getContext('2d');
-  const smoothstep = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x-e0)/(e1-e0))); return t*t*(3-2*t); };
+  const hoverTiles = [];
 
   function loop() {
     gdRaf = requestAnimationFrame(loop);
@@ -586,7 +586,7 @@ function startPixelReveal(project) {
     canvas.classList.toggle('is-revealing', p2 > 0.005);
 
     if (!tex) return;
-    // lens pass — no hoverTiles needed
+    hoverTiles.length = 0;
 
     // Edge tear is static — no per-frame animation needed
 
@@ -611,29 +611,51 @@ function startPixelReveal(project) {
         const ddx = smoothMX - cx, ddy = smoothMY - cy;
         const dist = Math.sqrt(ddx * ddx + ddy * ddy);
 
-        // Lens: sample texture from displaced source point (no gaps, tile stays in place)
-        let srcOffX = 0, srcOffY = 0;
+        let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
-          const norm     = dist / HOVER_R;
-          const ring     = smoothstep(0, HOVER_R * 0.5, dist) * (1 - norm * norm);
-          const push     = ring * MAX_PUSH;
-          srcOffX = (-ddx / dist) * push;
-          srcOffY = (-ddy / dist) * push;
+          const norm = dist / HOVER_R;
+          const edgeFactor = norm * norm;
+          const t = performance.now() * 0.0005 + scrollTime;
+          const timeScale = 1.0 - edgeFactor * (0.5 - Math.sin(t + tilePhase[ci]) * 0.5);
+          const push = (1 - norm) * tileNoise[ci] * timeScale * MAX_PUSH;
+          const baseAngle = Math.atan2(-ddy, -ddx);
+          const angle = baseAngle + tileAngle[ci] * edgeFactor;
+          tDX = Math.cos(angle) * push;
+          tDY = Math.sin(angle) * push;
         }
-        cellDX[ci] += (srcOffX - cellDX[ci]) * 0.12;
-        cellDY[ci] += (srcOffY - cellDY[ci]) * 0.12;
+        cellDX[ci] += (tDX - cellDX[ci]) * 0.13;
+        cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
+
+        const dx = cellDX[ci], dy = cellDY[ci];
+        const hasDrift = dx * dx + dy * dy > 16;
+
+        ctx.fillStyle = '#06050A';
+        ctx.fillRect(baseX, baseY, PX, PX);
 
         const nPX    = PX * sc;
+        const nX     = baseX * sc;
         const innerY = (row - INNER_ROW0) * PX;
-        // Sample source displaced by lens offset
-        const nX = Math.max(0, Math.min(texNW - nPX, (baseX + cellDX[ci]) * sc));
-        const nY = Math.max(0, Math.min(texNH - nPX, innerY * sc + srcYOff + cellDY[ci] * sc));
+        const nY     = Math.max(0, Math.min(texNH - nPX, innerY * sc + srcYOff));
 
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
-        ctx.globalAlpha = 1;
+        if (hasDrift) {
+          hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX, alpha });
+        } else {
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(tex, nX, nY, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+          ctx.globalAlpha = 1;
+        }
       }
     }
+
+    // ── Pass 2: displaced tiles, farthest first ──
+    hoverTiles.sort((a, b) => b.dist - a.dist);
+    const DCELL = CELL - 1;
+    for (const { baseX, baseY, dx, dy, nX, nY, nPX, alpha } of hoverTiles) {
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(tex, nX, nY, nPX, nPX,
+        baseX + dx + 1, baseY + dy + 1, DCELL, DCELL);
+    }
+    ctx.globalAlpha = 1;
   }
 
   gdRaf = requestAnimationFrame(loop);
