@@ -99,11 +99,8 @@ function initGridDistortion(canvas, project, _dv) {
       oc2.filter = 'brightness(1.7)';
       oc2.drawImage(imgEl, (W - sw) / 2, (texH - sh) / 2, sw, sh);
       oc2.filter = 'none';
-      // Vignette fade: edges blend into dark background
-      const vgr = oc2.createRadialGradient(W/2, texH/2, texH*0.15, W/2, texH/2, texH*0.75);
-      vgr.addColorStop(0, 'rgba(6,5,10,0)');
-      vgr.addColorStop(1, 'rgba(6,5,10,0.72)');
-      oc2.fillStyle = vgr;
+      // Matte overlay
+      oc2.fillStyle = 'rgba(6,5,10,0.45)';
       oc2.fillRect(0, 0, W, texH);
     } else {
       // Gradient fill
