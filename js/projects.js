@@ -631,6 +631,10 @@ function startPixelReveal(project) {
         const innerY = (row - INNER_ROW0) * PX;
         const nY     = Math.max(0, Math.min(texNH - nPX, innerY * sc + srcYOff));
 
+        // Fill full PX×PX area with bg color so gaps don't show text underneath
+        ctx.fillStyle = '#06050A';
+        ctx.fillRect(baseX, baseY, PX, PX);
+
         if (hasDrift) {
           hoverTiles.push({ baseX, baseY, dx, dy, dist, nX, nY, nPX, alpha });
         } else {
@@ -645,6 +649,8 @@ function startPixelReveal(project) {
     hoverTiles.sort((a, b) => b.dist - a.dist);
     const DCELL = CELL - 1;
     for (const { baseX, baseY, dx, dy, nX, nY, nPX, alpha } of hoverTiles) {
+      ctx.fillStyle = '#06050A';
+      ctx.fillRect(baseX + dx, baseY + dy, PX, PX);
       ctx.globalAlpha = alpha;
       ctx.drawImage(tex, nX, nY, nPX, nPX,
         baseX + dx + 1, baseY + dy + 1, DCELL, DCELL);
