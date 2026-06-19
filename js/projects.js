@@ -566,8 +566,8 @@ function startPixelReveal(project) {
     // Smooth mouse position — lens lags behind cursor
     if (mX > 0) {
       if (smoothMX < 0) { smoothMX = mX; smoothMY = mY; } // snap on first enter
-      smoothMX += (mX - smoothMX) * 0.07;
-      smoothMY += (mY - smoothMY) * 0.07;
+      smoothMX += (mX - smoothMX) * 0.18;
+      smoothMY += (mY - smoothMY) * 0.18;
     } else {
       smoothMX = -9999; smoothMY = -9999;
     }
@@ -615,12 +615,13 @@ function startPixelReveal(project) {
 
         let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
-          const norm = dist / HOVER_R;
-          const push = (1 - norm) * (1 - norm) * MAX_PUSH;
-          tDX = (-ddx / dist) * push;
-          tDY = (-ddy / dist) * push;
+          const norm  = dist / HOVER_R;
+          const push  = (1 - norm) * (1 - norm) * MAX_PUSH * tileNoise[ci];
+          const angle = Math.atan2(-ddy, -ddx) + tileAngle[ci] * 0.4 * norm;
+          tDX = Math.cos(angle) * push;
+          tDY = Math.sin(angle) * push;
         }
-        cellDX[ci] += (tDX - cellDX[ci]) * 0.13;
+        cellDX[ci] += (tDX - cellDX[ci]) * 0.20;
         cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
 
         const dx = cellDX[ci], dy = cellDY[ci];
