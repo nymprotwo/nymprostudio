@@ -614,23 +614,15 @@ function startPixelReveal(project) {
         let tDX = 0, tDY = 0;
         if (dist < HOVER_R && dist > 0) {
           const norm = dist / HOVER_R;
-          const edgeFactor = norm * norm;
-          const t = performance.now() * 0.0005 + scrollTime;
-          const timeScale = 1.0 - edgeFactor * (0.5 - Math.sin(t + tilePhase[ci]) * 0.5);
-          const push = (1 - norm) * tileNoise[ci] * timeScale * MAX_PUSH;
-          const baseAngle = Math.atan2(-ddy, -ddx);
-          const angle = baseAngle + tileAngle[ci] * edgeFactor;
-          tDX = Math.cos(angle) * push;
-          tDY = Math.sin(angle) * push;
+          const push = (1 - norm) * (1 - norm) * MAX_PUSH;
+          tDX = (-ddx / dist) * push;
+          tDY = (-ddy / dist) * push;
         }
         cellDX[ci] += (tDX - cellDX[ci]) * 0.13;
         cellDY[ci] += (tDY - cellDY[ci]) * 0.13;
 
         const dx = cellDX[ci], dy = cellDY[ci];
-        const hasDrift = dx * dx + dy * dy > 16;
-
-        ctx.fillStyle = '#06050A';
-        ctx.fillRect(baseX, baseY, PX, PX);
+        const hasDrift = dx * dx + dy * dy > 1;
 
         const nPX    = PX * sc;
         const nX     = baseX * sc;
