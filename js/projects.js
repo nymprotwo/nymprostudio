@@ -453,7 +453,7 @@ function startPixelReveal(project) {
   const W = canvas.offsetWidth  || window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
-  canvas.height = H + 1;
+  canvas.height = H; // exact: ROWS*PX set below after ROWS is computed
 
   // Equalizer canvas — sits directly above main canvas
   let eqCanvas = document.getElementById('proj-eq-canvas');
@@ -499,7 +499,9 @@ function startPixelReveal(project) {
   const eqBotCtx = eqBotCanvas.getContext('2d');
 
   const COLS = Math.floor(W / PX);
-  const ROWS = Math.floor(H / PX); // floor = no partial stub row at bottom
+  const ROWS = Math.floor(H / PX);
+  canvas.width  = COLS * PX; // exact pixel-perfect width
+  canvas.height = ROWS * PX; // exact pixel-perfect height — no stubs
 
   const INNER_ROW0 = 0;
   const INNER_ROW1 = ROWS;
@@ -548,31 +550,28 @@ function startPixelReveal(project) {
   let masterTgt = 0, masterProg = 0;
   let prevMasterProg = 0;
   let scrollTime = 0;
-  // Forward scroll: top external eq + bottom internal eq
-  const eqHeight    = new Float32Array(COLS); // top external
-  const eqTarget    = new Float32Array(COLS);
-  const eqBotHeight = new Float32Array(COLS); // bottom internal
-  const eqBotTarget = new Float32Array(COLS);
-  // Reverse scroll: top internal eq + bottom external eq
-  const revTopHeight = new Float32Array(COLS);
-  const revTopTarget = new Float32Array(COLS);
-  const revBotHeight = new Float32Array(COLS); // bottom external
-  const revBotTarget = new Float32Array(COLS);
+  //
+  // EQ SYSTEM:
+  //   scroll UP   (revProg): topExt (external above) + botInt (internal bottom)
+  //   scroll DOWN (fwdProg): botExt (external below) + topInt (internal top)
+  //
+  const topExtH = new Float32Array(COLS); const topExtT = new Float32Array(COLS);
+  const botExtH = new Float32Array(COLS); const botExtT = new Float32Array(COLS);
+  const topIntH = new Float32Array(COLS); const topIntT = new Float32Array(COLS);
+  const botIntH = new Float32Array(COLS); const botIntT = new Float32Array(COLS);
 
-  // Per-tile opacity class for eq canvases: 0=full(1.0), 1=dim(0.6), 2=faint(0.3)
-  const mkTileClass = (n) => {
+  const mkClass = (n) => {
     const a = new Uint8Array(n);
     for (let i = 0; i < n; i++) { const r = Math.random(); a[i] = r < 0.8 ? 0 : r < 0.95 ? 1 : 2; }
     return a;
   };
-  const eqTileClass    = mkTileClass(COLS * EQ_MAX_ROWS); // top external
-  const revBotTileClass = mkTileClass(COLS * EQ_MAX_ROWS); // bottom external (reverse)
-  // Per-col class for internal eqs (alpha applied to tiles near boundary)
-  const eqBotColClass  = mkTileClass(COLS); // bottom internal (forward)
-  const revTopColClass = mkTileClass(COLS); // top internal (reverse)
+  const topExtClass = mkClass(COLS * EQ_MAX_ROWS);
+  const botExtClass = mkClass(COLS * EQ_MAX_ROWS);
+  const topIntClass = mkClass(COLS); // per-col opacity for internal top
+  const botIntClass = mkClass(COLS); // per-col opacity for internal bottom
 
   let fwdProg = 0, revProg = 0;
-  let eqTimer = 0, eqBotTimer = 0, revTopTimer = 0, revBotTimer = 0;
+  let topExtTimer = 0, botExtTimer = 0, topIntTimer = 0, botIntTimer = 0;
   // Raw mouse position, updated on mousemove
   let mX = -9999, mY = -9999;
   // Smoothed position used for lens — lags behind cursor
@@ -633,49 +632,32 @@ function startPixelReveal(project) {
     scrollTime += scrollVel * 25;
 
     const isRevealed = masterProg > 0.95;
-    const scrolling  = scrollVel > 0.00008 && isRevealed; // any direction
-    const goingFwd   = scrollDelta > 0.00008 && isRevealed; // forward only (down)
+    const goingFwd   = scrollDelta >  0.00008 && isRevealed;
+    const goingRev   = scrollDelta < -0.00008 && isRevealed;
 
-    // anyProg: top external eq fires on any scroll direction
-    // fwdProg: bottom external eq fires only when scrolling forward (down)
-    // fwdProg: snaps OFF instantly when scroll direction changes or stops
-    if (goingFwd) {
-      fwdProg += (1 - fwdProg) * 0.20;
-    } else {
-      fwdProg = 0; // instant off — no bottom eq bleeding into reverse scroll
-      eqBotTarget.fill(0);
-    }
-    // anyProg (revProg reused): fires on any scroll, snaps off when stopped
-    if (scrolling) {
-      revProg += (1 - revProg) * 0.20;
-    } else {
-      revProg = 0;
-      eqTarget.fill(0);
-    }
+    if (goingFwd) { fwdProg += (1 - fwdProg) * 0.20; }
+    else          { fwdProg = 0; botExtT.fill(0); topIntT.fill(0); }
 
-    const updateEq = (timer, interval, heights, targets, prog, maxRows, prob) => {
+    if (goingRev) { revProg += (1 - revProg) * 0.20; }
+    else          { revProg = 0; topExtT.fill(0); botIntT.fill(0); }
+
+    const upd = (timer, interval, H2, T, prog, maxR, prob) => {
       if (prog > 0.01) {
         timer += scrollVel;
         if (timer > interval) {
           timer = 0;
           for (let c = 0; c < COLS; c++) {
-            if (Math.random() < prob) {
-              const r = Math.random();
-              targets[c] = r < 0.3 ? 0 : Math.round(r * maxRows);
-            }
+            if (Math.random() < prob) { const r = Math.random(); T[c] = r < 0.3 ? 0 : Math.round(r * maxR); }
           }
         }
       }
-      const decay = prog > 0.01 ? 0.22 : 0.35; // faster collapse when not active
-      for (let c = 0; c < COLS; c++) {
-        heights[c] += (targets[c] * prog - heights[c]) * decay;
-      }
+      for (let c = 0; c < COLS; c++) H2[c] += (T[c] * prog - H2[c]) * 0.22;
       return timer;
     };
-    // Top external eq: any scroll direction (revProg = anyProg here)
-    eqTimer    = updateEq(eqTimer,    0.04,  eqHeight,    eqTarget,    revProg, EQ_MAX_ROWS, 0.35);
-    // Bottom external eq: forward scroll only
-    eqBotTimer = updateEq(eqBotTimer, 0.055, eqBotHeight, eqBotTarget, fwdProg, EQ_MAX_ROWS, 0.35);
+    topExtTimer = upd(topExtTimer, 0.04,  topExtH, topExtT, revProg, EQ_MAX_ROWS, 0.35);
+    botIntTimer = upd(botIntTimer, 0.055, botIntH, botIntT, revProg, 4,           0.30);
+    botExtTimer = upd(botExtTimer, 0.04,  botExtH, botExtT, fwdProg, EQ_MAX_ROWS, 0.35);
+    topIntTimer = upd(topIntTimer, 0.055, topIntH, topIntT, fwdProg, 4,           0.30);
 
     // Smooth mouse position — lens lags behind cursor
     if (mX > 0) {
@@ -720,7 +702,26 @@ function startPixelReveal(project) {
         let alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
         if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
-        // (internal eq removed — only external eq canvases used)
+        // Internal eqs: tiles fade out at boundary then disappear
+        if (masterProg > 0.98) {
+          // scroll UP → bottom internal: eat from bottom
+          if (botIntH[col] > 0.1) {
+            const depth = ROWS - 1 - row;
+            if (depth < Math.round(botIntH[col])) {
+              const cls = botIntClass[col];
+              if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+              alpha *= cls === 1 ? 0.6 : 0.3;
+            }
+          }
+          // scroll DOWN → top internal: eat from top
+          if (topIntH[col] > 0.1) {
+            if (row < Math.round(topIntH[col])) {
+              const cls = topIntClass[col];
+              if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+              alpha *= cls === 1 ? 0.6 : 0.3;
+            }
+          }
+        }
 
         const baseX = col * PX;
         const baseY = row * PX;
@@ -781,8 +782,12 @@ function startPixelReveal(project) {
     const eqSc  = texNW / W;
     const eqNPX = PX * eqSc;
 
-    const drawEqCanvas = (ctx2, heights, tileClass, getY, growDown) => {
+    // prog → fade multiplier: starts at 0.5, reaches 1.0 as prog→1
+    const fadeMult = (prog) => 0.5 + 0.5 * Math.min(1, prog * 2.5);
+
+    const drawEqCanvas = (ctx2, heights, tileClass, getY, growDown, prog) => {
       ctx2.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
+      const fade = fadeMult(prog);
       for (let col = 0; col < COLS; col++) {
         const bars = heights[col];
         if (bars < 0.1) continue;
@@ -790,11 +795,10 @@ function startPixelReveal(project) {
         const baseX   = col * PX;
         const nX      = baseX * eqSc;
         for (let r = 0; r < barRows; r++) {
-          // Top grows upward (r=0 at bottom of canvas), bottom grows downward (r=0 at top of canvas)
           const baseY = growDown ? r * PX : (EQ_MAX_ROWS - 1 - r) * PX;
           const nY    = getY(r);
           const tc    = tileClass[col * EQ_MAX_ROWS + r];
-          const ta    = tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3;
+          const ta    = (tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3) * fade;
           ctx2.fillStyle = '#06050A';
           ctx2.fillRect(baseX, baseY, PX, PX);
           ctx2.globalAlpha = ta;
@@ -804,16 +808,16 @@ function startPixelReveal(project) {
       }
     };
 
-    const showTop = fullyRevealed && tex && revProg > 0.01; // anyProg
-    const showBot = fullyRevealed && tex && fwdProg > 0.01; // fwd only
+    const showTop = fullyRevealed && tex && revProg > 0.01;
+    const showBot = fullyRevealed && tex && fwdProg > 0.01;
     eqCanvas.style.opacity    = showTop ? '1' : '0';
     eqBotCanvas.style.opacity = showBot ? '1' : '0';
     if (showTop)
-      drawEqCanvas(eqCtx,    eqHeight,    eqTileClass,
-        r => Math.max(0, srcYOff - (r + 1) * eqSc * PX), false);
+      drawEqCanvas(eqCtx,    topExtH, topExtClass,
+        r => Math.max(0, srcYOff - (r + 1) * eqSc * PX), false, revProg);
     if (showBot)
-      drawEqCanvas(eqBotCtx, eqBotHeight, eqTileClass,
-        r => Math.min(texNH - eqNPX, srcYOff + visH + r * eqSc * PX), true);
+      drawEqCanvas(eqBotCtx, botExtH, botExtClass,
+        r => Math.min(texNH - eqNPX, srcYOff + visH + r * eqSc * PX), true, fwdProg);
   }
 
   gdRaf = requestAnimationFrame(loop);
