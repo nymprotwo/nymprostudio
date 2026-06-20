@@ -484,8 +484,22 @@ function startPixelReveal(project) {
   eqCanvas.style.top    = (canvasRect.top - parentRect.top - EQ_MAX_ROWS * PX) + 'px';
   const eqCtx = eqCanvas.getContext('2d');
 
-  const COLS = Math.floor(W / PX); // floor = no partial tile on right edge
-  const ROWS = Math.ceil(H / PX);
+  // Equalizer canvas — sits directly below main canvas (reverse scroll)
+  let eqBotCanvas = document.getElementById('proj-eq-bot-canvas');
+  if (!eqBotCanvas) {
+    eqBotCanvas = document.createElement('canvas');
+    eqBotCanvas.id = 'proj-eq-bot-canvas';
+    canvas.parentNode.insertBefore(eqBotCanvas, canvas.nextSibling);
+  }
+  eqBotCanvas.width  = W;
+  eqBotCanvas.height = EQ_MAX_ROWS * PX;
+  eqBotCanvas.style.cssText = eqCanvas.style.cssText; // same style base
+  eqBotCanvas.style.top  = (canvasRect.top - parentRect.top + H) + 'px';
+  eqBotCanvas.style.left = (canvasRect.left - parentRect.left) + 'px';
+  const eqBotCtx = eqBotCanvas.getContext('2d');
+
+  const COLS = Math.floor(W / PX);
+  const ROWS = Math.floor(H / PX); // floor = no partial stub row at bottom
 
   const INNER_ROW0 = 0;
   const INNER_ROW1 = ROWS;
@@ -534,18 +548,31 @@ function startPixelReveal(project) {
   let masterTgt = 0, masterProg = 0;
   let prevMasterProg = 0;
   let scrollTime = 0;
-  let expandProg = 0; // 0=normal 1=fully expanded during scroll
-  const eqHeight    = new Float32Array(COLS);
+  // Forward scroll: top external eq + bottom internal eq
+  const eqHeight    = new Float32Array(COLS); // top external
   const eqTarget    = new Float32Array(COLS);
-  const eqBotHeight = new Float32Array(COLS);
+  const eqBotHeight = new Float32Array(COLS); // bottom internal
   const eqBotTarget = new Float32Array(COLS);
-  // Per-tile opacity class: 0=normal(1.0), 1=dim(0.6), 2=faint(0.3)
-  const eqTileClass = new Uint8Array(COLS * EQ_MAX_ROWS);
-  for (let i = 0; i < eqTileClass.length; i++) {
-    const r = Math.random();
-    eqTileClass[i] = r < 0.8 ? 0 : r < 0.95 ? 1 : 2;
-  }
-  let eqTimer = 0, eqBotTimer = 0;
+  // Reverse scroll: top internal eq + bottom external eq
+  const revTopHeight = new Float32Array(COLS);
+  const revTopTarget = new Float32Array(COLS);
+  const revBotHeight = new Float32Array(COLS); // bottom external
+  const revBotTarget = new Float32Array(COLS);
+
+  // Per-tile opacity class for eq canvases: 0=full(1.0), 1=dim(0.6), 2=faint(0.3)
+  const mkTileClass = (n) => {
+    const a = new Uint8Array(n);
+    for (let i = 0; i < n; i++) { const r = Math.random(); a[i] = r < 0.8 ? 0 : r < 0.95 ? 1 : 2; }
+    return a;
+  };
+  const eqTileClass    = mkTileClass(COLS * EQ_MAX_ROWS); // top external
+  const revBotTileClass = mkTileClass(COLS * EQ_MAX_ROWS); // bottom external (reverse)
+  // Per-col class for internal eqs (alpha applied to tiles near boundary)
+  const eqBotColClass  = mkTileClass(COLS); // bottom internal (forward)
+  const revTopColClass = mkTileClass(COLS); // top internal (reverse)
+
+  let fwdProg = 0, revProg = 0;
+  let eqTimer = 0, eqBotTimer = 0, revTopTimer = 0, revBotTimer = 0;
   // Raw mouse position, updated on mousemove
   let mX = -9999, mY = -9999;
   // Smoothed position used for lens — lags behind cursor
@@ -580,7 +607,7 @@ function startPixelReveal(project) {
   function onWheel(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    const speed = masterTgt < 1 ? 0.007 : 0.0009;
+    const speed = 0.004; // unified speed for reveal and image scroll
     masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * speed));
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
@@ -600,43 +627,37 @@ function startPixelReveal(project) {
     gdRaf = requestAnimationFrame(loop);
     masterProg += (masterTgt - masterProg) * 0.16;
 
-    const scrollVel = Math.abs(masterProg - prevMasterProg);
+    const scrollDelta = masterProg - prevMasterProg;
+    const scrollVel   = Math.abs(scrollDelta);
     prevMasterProg = masterProg;
     scrollTime += scrollVel * 25;
 
-    // expandProg: only active during image-scroll phase (after full reveal)
-    const scrolling = scrollVel > 0.00008 && masterProg > 0.95;
-    expandProg += ((scrolling ? 1 : 0) - expandProg) * (scrolling ? 0.14 : 0.15);
+    const isRevealed   = masterProg > 0.95;
+    const goingFwd     = scrollDelta >  0.00008 && isRevealed;
+    const goingRev     = scrollDelta < -0.00008 && isRevealed;
+    fwdProg += ((goingFwd ? 1 : 0) - fwdProg) * (goingFwd ? 0.14 : 0.15);
+    revProg += ((goingRev ? 1 : 0) - revProg) * (goingRev ? 0.14 : 0.15);
 
-    // Top equalizer targets — random per column
-    eqTimer += scrollVel;
-    if (eqTimer > 0.04) {
-      eqTimer = 0;
-      for (let c = 0; c < COLS; c++) {
-        if (Math.random() < 0.35) {
-          const r = Math.random();
-          eqTarget[c] = r < 0.3 ? 0 : Math.round(r * EQ_MAX_ROWS);
+    const updateEq = (timer, interval, heights, targets, prog, maxRows, prob, timerName) => {
+      timer += scrollVel;
+      if (timer > interval) {
+        timer = 0;
+        for (let c = 0; c < COLS; c++) {
+          if (Math.random() < prob) {
+            const r = Math.random();
+            targets[c] = r < 0.3 ? 0 : Math.round(r * maxRows);
+          }
         }
       }
-    }
-    for (let c = 0; c < COLS; c++) {
-      eqHeight[c] += (eqTarget[c] * expandProg - eqHeight[c]) * 0.22;
-    }
-
-    // Bottom equalizer targets — independent random per column
-    eqBotTimer += scrollVel;
-    if (eqBotTimer > 0.055) {
-      eqBotTimer = 0;
       for (let c = 0; c < COLS; c++) {
-        if (Math.random() < 0.3) {
-          const r = Math.random();
-          eqBotTarget[c] = r < 0.35 ? 0 : Math.round(r * 4);
-        }
+        heights[c] += (targets[c] * prog - heights[c]) * 0.22;
       }
-    }
-    for (let c = 0; c < COLS; c++) {
-      eqBotHeight[c] += (eqBotTarget[c] * expandProg - eqBotHeight[c]) * 0.22;
-    }
+      return timer;
+    };
+    eqTimer    = updateEq(eqTimer,    0.04,  eqHeight,    eqTarget,    fwdProg, EQ_MAX_ROWS, 0.35);
+    eqBotTimer = updateEq(eqBotTimer, 0.055, eqBotHeight, eqBotTarget, fwdProg, 4,           0.30);
+    revTopTimer = updateEq(revTopTimer, 0.04,  revTopHeight, revTopTarget, revProg, 4,           0.30);
+    revBotTimer = updateEq(revBotTimer, 0.055, revBotHeight, revBotTarget, revProg, EQ_MAX_ROWS, 0.35);
 
     // Smooth mouse position — lens lags behind cursor
     if (mX > 0) {
@@ -677,14 +698,31 @@ function startPixelReveal(project) {
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
         if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
-        // Bottom equalizer: skip tiles eaten from the bottom inside canvas
-        if (masterProg > 0.98 && eqBotHeight[col] > 0.1) {
-          if (row >= ROWS - Math.round(eqBotHeight[col])) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-        }
-
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
-        const alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
+        let alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
         if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+
+        if (masterProg > 0.98) {
+          // Bottom internal eq (forward scroll): eat rows from bottom with opacity variety
+          if (eqBotHeight[col] > 0.1) {
+            const botRows = Math.round(eqBotHeight[col]);
+            const depth   = ROWS - 1 - row; // 0 = bottommost
+            if (depth < botRows) {
+              const cls = eqBotColClass[col];
+              if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+              alpha *= cls === 1 ? 0.6 : 0.3;
+            }
+          }
+          // Top internal eq (reverse scroll): eat rows from top with opacity variety
+          if (revTopHeight[col] > 0.1) {
+            const topRows = Math.round(revTopHeight[col]);
+            if (row < topRows) {
+              const cls = revTopColClass[col];
+              if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+              alpha *= cls === 1 ? 0.6 : 0.3;
+            }
+          }
+        }
 
         const baseX = col * PX;
         const baseY = row * PX;
@@ -737,32 +775,45 @@ function startPixelReveal(project) {
     }
     ctx.globalAlpha = 1;
 
-    // ── Equalizer canvas (above main canvas) ──
-    const isRevealed = masterProg > 0.98;
-    eqCanvas.style.opacity = isRevealed ? '1' : '0';
-    if (isRevealed) {
-      eqCtx.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
-      const eqSc  = texNW / W;
-      const eqNPX = PX * eqSc;
+    // ── Equalizer canvases ──
+    const fullyRevealed = masterProg > 0.98;
+    eqCanvas.style.opacity    = (fullyRevealed && fwdProg > 0.01) ? '1' : '0';
+    eqBotCanvas.style.opacity = (fullyRevealed && revProg > 0.01) ? '1' : '0';
+
+    const eqSc  = texNW / W;
+    const eqNPX = PX * eqSc;
+
+    const drawEqCanvas = (ctx2, heights, tileClass, getY) => {
+      ctx2.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
       for (let col = 0; col < COLS; col++) {
-        const bars = eqHeight[col];
+        const bars = heights[col];
         if (bars < 0.1) continue;
         const barRows = Math.round(bars);
         const baseX   = col * PX;
         const nX      = baseX * eqSc;
-        // Draw from bottom of eqCanvas upward, continuing texture above canvas top
         for (let r = 0; r < barRows; r++) {
           const baseY = (EQ_MAX_ROWS - 1 - r) * PX;
-          const nY = Math.max(0, srcYOff - (r + 1) * eqSc * PX);
-          const tc = eqTileClass[col * EQ_MAX_ROWS + r];
-          const tileAlpha = tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3;
-          eqCtx.fillStyle = '#06050A';
-          eqCtx.fillRect(baseX, baseY, PX, PX);
-          eqCtx.globalAlpha = tileAlpha;
-          eqCtx.drawImage(tex, nX, nY, eqNPX, eqNPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
-          eqCtx.globalAlpha = 1;
+          const nY    = getY(r);
+          const tc    = tileClass[col * EQ_MAX_ROWS + r];
+          const ta    = tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3;
+          ctx2.fillStyle = '#06050A';
+          ctx2.fillRect(baseX, baseY, PX, PX);
+          ctx2.globalAlpha = ta;
+          ctx2.drawImage(tex, nX, nY, eqNPX, eqNPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+          ctx2.globalAlpha = 1;
         }
       }
+    };
+
+    if (fullyRevealed && tex) {
+      // Top external (forward): texture above canvas top
+      if (fwdProg > 0.01)
+        drawEqCanvas(eqCtx,    eqHeight,    eqTileClass,
+          r => Math.max(0, srcYOff - (r + 1) * eqSc * PX));
+      // Bottom external (reverse): texture below canvas bottom
+      if (revProg > 0.01)
+        drawEqCanvas(eqBotCtx, revBotHeight, revBotTileClass,
+          r => Math.min(texNH - eqNPX, srcYOff + visH + (r + 1) * eqSc * PX));
     }
   }
 
@@ -774,7 +825,8 @@ function startPixelReveal(project) {
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
     canvas.classList.remove('is-revealing');
-    eqCanvas.style.opacity = '0';
+    eqCanvas.style.opacity    = '0';
+    eqBotCanvas.style.opacity = '0';
     document.body.classList.remove('detail-scrolling');
   };
 }
