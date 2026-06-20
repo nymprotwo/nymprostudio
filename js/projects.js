@@ -590,6 +590,7 @@ function startPixelReveal(project) {
   let masterTgt = 0, masterProg = 0;
   let prevMasterProg = 0;
   let scrollTime = 0;
+  let smoothScrollVel = 0;
   //
   // EQ SYSTEM:
   //   scroll UP   (revProg): topExt (external above) + botInt (internal bottom)
@@ -671,7 +672,10 @@ function startPixelReveal(project) {
     prevMasterProg = masterProg;
     scrollTime += scrollVel * 25;
 
-    const isRevealed = masterProg > 0.3; // lower threshold → eq seamlessly connects to reveal
+    smoothScrollVel += (scrollVel - smoothScrollVel) * 0.12;
+    const eqScale  = Math.min(1, smoothScrollVel / 0.0018); // 0=slow scroll, 1=fast scroll
+
+    const isRevealed = masterProg > 0.3;
     const goingFwd   = scrollDelta >  0.00008 && isRevealed;
     const goingRev   = scrollDelta < -0.00008 && isRevealed;
 
@@ -686,8 +690,9 @@ function startPixelReveal(project) {
         timer += scrollVel;
         if (timer > interval) {
           timer = 0;
+          const effectiveMax = Math.max(1, Math.round(maxR * eqScale));
           for (let c = 0; c < COLS; c++) {
-            if (Math.random() < prob) { const r = Math.random(); T[c] = r < 0.3 ? 0 : Math.round(r * maxR); }
+            if (Math.random() < prob) { const r = Math.random(); T[c] = r < 0.3 ? 0 : Math.round(r * effectiveMax); }
           }
         }
       }
@@ -739,8 +744,16 @@ function startPixelReveal(project) {
         if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
-        let alpha = ((row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0) * tileMask[ci];
+        let alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
         if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+
+        // Letter silhouette: solid dark tile over letter area (hides title, creates shape)
+        if (tileMask[ci] < 0.5) {
+          ctx.fillStyle = '#06050A';
+          ctx.fillRect(col * PX, row * PX, PX, PX);
+          cellDX[ci] = 0; cellDY[ci] = 0;
+          continue;
+        }
 
         // Internal eqs: tiles fade out at boundary then disappear
         if (masterProg > 0.98) {
