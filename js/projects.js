@@ -446,7 +446,7 @@ function startPixelReveal(project) {
   const CELL     = PX - GAP;
   const HOVER_R  = 150;
   const MAX_PUSH = 8;
-  const PHASE2_START = 0.15;
+  const PHASE2_START = 0.0;
   const TEX_MULT = 2.5;
   const EQ_MAX_ROWS = 8; // max equalizer bar height in rows
 
@@ -632,32 +632,44 @@ function startPixelReveal(project) {
     prevMasterProg = masterProg;
     scrollTime += scrollVel * 25;
 
-    const isRevealed   = masterProg > 0.95;
-    const goingFwd     = scrollDelta >  0.00008 && isRevealed;
-    const goingRev     = scrollDelta < -0.00008 && isRevealed;
-    fwdProg += ((goingFwd ? 1 : 0) - fwdProg) * (goingFwd ? 0.14 : 0.15);
-    revProg += ((goingRev ? 1 : 0) - revProg) * (goingRev ? 0.14 : 0.15);
+    const isRevealed = masterProg > 0.95;
+    const scrolling  = scrollVel > 0.00008 && isRevealed; // any direction
+    const goingFwd   = scrollDelta > 0.00008 && isRevealed; // forward only (down)
 
-    const updateEq = (timer, interval, heights, targets, prog, maxRows, prob, timerName) => {
-      timer += scrollVel;
-      if (timer > interval) {
-        timer = 0;
-        for (let c = 0; c < COLS; c++) {
-          if (Math.random() < prob) {
-            const r = Math.random();
-            targets[c] = r < 0.3 ? 0 : Math.round(r * maxRows);
+    // anyProg: top external eq fires on any scroll direction
+    // fwdProg: bottom external eq fires only when scrolling forward (down)
+    fwdProg += ((goingFwd  ? 1 : 0) - fwdProg) * (goingFwd  ? 0.20 : 0.25);
+    revProg += ((scrolling ? 1 : 0) - revProg)  * (scrolling ? 0.20 : 0.25); // reuse revProg as anyProg
+
+    // When scroll stops, immediately zero targets so eq collapses without lag
+    if (!scrolling) {
+      eqTarget.fill(0);
+      eqBotTarget.fill(0);
+    }
+
+    const updateEq = (timer, interval, heights, targets, prog, maxRows, prob) => {
+      if (prog > 0.01) {
+        timer += scrollVel;
+        if (timer > interval) {
+          timer = 0;
+          for (let c = 0; c < COLS; c++) {
+            if (Math.random() < prob) {
+              const r = Math.random();
+              targets[c] = r < 0.3 ? 0 : Math.round(r * maxRows);
+            }
           }
         }
       }
+      const decay = prog > 0.01 ? 0.22 : 0.35; // faster collapse when not active
       for (let c = 0; c < COLS; c++) {
-        heights[c] += (targets[c] * prog - heights[c]) * 0.22;
+        heights[c] += (targets[c] * prog - heights[c]) * decay;
       }
       return timer;
     };
-    eqTimer    = updateEq(eqTimer,    0.04,  eqHeight,    eqTarget,    fwdProg, EQ_MAX_ROWS, 0.35);
-    eqBotTimer = updateEq(eqBotTimer, 0.055, eqBotHeight, eqBotTarget, fwdProg, 4,           0.30);
-    revTopTimer = updateEq(revTopTimer, 0.04,  revTopHeight, revTopTarget, revProg, 4,           0.30);
-    revBotTimer = updateEq(revBotTimer, 0.055, revBotHeight, revBotTarget, revProg, EQ_MAX_ROWS, 0.35);
+    // Top external eq: any scroll direction (revProg = anyProg here)
+    eqTimer    = updateEq(eqTimer,    0.04,  eqHeight,    eqTarget,    revProg, EQ_MAX_ROWS, 0.35);
+    // Bottom external eq: forward scroll only
+    eqBotTimer = updateEq(eqBotTimer, 0.055, eqBotHeight, eqBotTarget, fwdProg, EQ_MAX_ROWS, 0.35);
 
     // Smooth mouse position — lens lags behind cursor
     if (mX > 0) {
@@ -806,15 +818,16 @@ function startPixelReveal(project) {
       }
     };
 
-    const showEq = fullyRevealed && tex && fwdProg > 0.01;
-    eqCanvas.style.opacity    = showEq ? '1' : '0';
-    eqBotCanvas.style.opacity = showEq ? '1' : '0';
-    if (showEq) {
-      drawEqCanvas(eqCtx,    eqHeight, eqTileClass,
+    const showTop = fullyRevealed && tex && revProg > 0.01; // anyProg
+    const showBot = fullyRevealed && tex && fwdProg > 0.01; // fwd only
+    eqCanvas.style.opacity    = showTop ? '1' : '0';
+    eqBotCanvas.style.opacity = showBot ? '1' : '0';
+    if (showTop)
+      drawEqCanvas(eqCtx,    eqHeight,    eqTileClass,
         r => Math.max(0, srcYOff - (r + 1) * eqSc * PX), false);
-      drawEqCanvas(eqBotCtx, eqHeight, eqTileClass,
+    if (showBot)
+      drawEqCanvas(eqBotCtx, eqBotHeight, eqTileClass,
         r => Math.min(texNH - eqNPX, srcYOff + visH + r * eqSc * PX), true);
-    }
   }
 
   gdRaf = requestAnimationFrame(loop);
