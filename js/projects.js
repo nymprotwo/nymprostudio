@@ -566,7 +566,8 @@ function startPixelReveal(project) {
     }
   }
 
-  let masterTgt = 0, masterProg = 0;
+  const IDLE_PROG = 0.55; // initial resting reveal level (no scroll needed)
+  let masterTgt = IDLE_PROG, masterProg = IDLE_PROG;
   let prevMasterProg = 0;
   let scrollTime = 0;
   let smoothScrollVel = 0;
@@ -627,7 +628,7 @@ function startPixelReveal(project) {
     e.preventDefault();
     e.stopImmediatePropagation();
     const speed = 0.004; // unified speed for reveal and image scroll
-    masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * speed));
+    masterTgt = Math.max(IDLE_PROG, Math.min(4, masterTgt + e.deltaY * speed));
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
@@ -702,7 +703,7 @@ function startPixelReveal(project) {
     const baseYOff = texNH * 0.28;  // start 28% down image so subject appears immediately
     const srcYOff  = baseYOff + imgT * Math.max(0, texNH - baseYOff - visH);
 
-    document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
+    document.body.classList.toggle('detail-scrolling', masterTgt > IDLE_PROG + 0.05);
     ctx.clearRect(0, 0, W, H);
     canvas.classList.toggle('is-revealing', p2 > 0.005);
 
