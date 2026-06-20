@@ -545,10 +545,25 @@ function startPixelReveal(project) {
     }
   }
 
-  // Random sparse holes: ~10% of tiles are removed for organic non-rectangular look
+  // Sparse cluster holes: ~1% coverage, small groups (single, row of 3-5, 2×2 square)
   const tileMask = new Uint8Array(COLS * ROWS).fill(1);
-  for (let i = 0; i < COLS * ROWS; i++) {
-    if (Math.random() < 0.10) tileMask[i] = 0;
+  const knock = (r, c) => { if (r >= 0 && r < ROWS && c >= 0 && c < COLS) tileMask[r * COLS + c] = 0; };
+  const clusterCount = Math.round(COLS * ROWS * 0.003); // ~0.3% cluster seeds
+  for (let k = 0; k < clusterCount; k++) {
+    const row = Math.floor(Math.random() * ROWS);
+    const col = Math.floor(Math.random() * COLS);
+    const type = Math.random();
+    if (type < 0.35) {
+      knock(row, col); // single dot
+    } else if (type < 0.65) {
+      const len = 2 + Math.floor(Math.random() * 4); // horizontal run 2-5
+      for (let i = 0; i < len; i++) knock(row, col + i);
+    } else if (type < 0.85) {
+      const len = 2 + Math.floor(Math.random() * 3); // vertical run 2-4
+      for (let i = 0; i < len; i++) knock(row + i, col);
+    } else {
+      knock(row, col); knock(row, col+1); knock(row+1, col); knock(row+1, col+1); // 2×2
+    }
   }
 
   let masterTgt = 0, masterProg = 0;
