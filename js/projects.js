@@ -448,11 +448,41 @@ function startPixelReveal(project) {
   const MAX_PUSH = 8;
   const PHASE2_START = 0.15;
   const TEX_MULT = 2.5;
+  const EQ_MAX_ROWS = 5; // max equalizer bar height in rows
 
   const W = canvas.offsetWidth  || window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
   canvas.height = H;
+
+  // Equalizer canvas — sits directly above main canvas
+  let eqCanvas = document.getElementById('proj-eq-canvas');
+  if (!eqCanvas) {
+    eqCanvas = document.createElement('canvas');
+    eqCanvas.id = 'proj-eq-canvas';
+    canvas.parentNode.insertBefore(eqCanvas, canvas);
+  }
+  eqCanvas.width  = W;
+  eqCanvas.height = EQ_MAX_ROWS * PX;
+  // Position: same left/right as main canvas, bottom edge = top edge of canvas
+  eqCanvas.style.cssText = `
+    position:absolute;
+    left:${canvas.style.left || '5vw'};
+    width:${W}px;
+    height:${EQ_MAX_ROWS * PX}px;
+    bottom:calc(100% - ${canvas.offsetTop}px + ${canvas.offsetTop}px);
+    z-index:20;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity 0.3s ease;
+    filter:saturate(0.55) brightness(0.8);
+  `;
+  // Position it flush with canvas top
+  const canvasRect = canvas.getBoundingClientRect();
+  const parentRect = canvas.parentElement.getBoundingClientRect();
+  eqCanvas.style.left   = (canvasRect.left - parentRect.left) + 'px';
+  eqCanvas.style.top    = (canvasRect.top - parentRect.top - EQ_MAX_ROWS * PX) + 'px';
+  const eqCtx = eqCanvas.getContext('2d');
 
   const COLS = Math.ceil(W / PX);
   const ROWS = Math.ceil(H / PX);
@@ -625,11 +655,6 @@ function startPixelReveal(project) {
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
         if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
-        // Equalizer: random jagged top edge above canvas during scroll
-        if (masterProg > 0.98 && row < 6 && eqHeight[col] > 0.1) {
-          if (row < eqHeight[col]) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-        }
-
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
         const alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
         if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
@@ -684,6 +709,29 @@ function startPixelReveal(project) {
         baseX + dx + 1, baseY + dy + 1, DCELL, DCELL);
     }
     ctx.globalAlpha = 1;
+
+    // ── Equalizer canvas (above main canvas) ──
+    const isRevealed = masterProg > 0.98;
+    eqCanvas.style.opacity = isRevealed ? '1' : '0';
+    if (isRevealed) {
+      eqCtx.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
+      for (let col = 0; col < COLS; col++) {
+        const bars = eqHeight[col];
+        if (bars < 0.1) continue;
+        const barRows = Math.round(bars);
+        const baseX = col * PX;
+        // Draw from bottom of eqCanvas upward
+        for (let r = 0; r < barRows; r++) {
+          const baseY = (EQ_MAX_ROWS - 1 - r) * PX;
+          eqCtx.fillStyle = '#06050A';
+          eqCtx.fillRect(baseX, baseY, PX, PX);
+          // image tile — mirror from row 0 of main texture
+          const nPX = PX * (texNW / W);
+          const nX = baseX * (texNW / W);
+          eqCtx.drawImage(tex, nX, 0, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+        }
+      }
+    }
   }
 
   gdRaf = requestAnimationFrame(loop);
@@ -694,6 +742,7 @@ function startPixelReveal(project) {
     canvas.removeEventListener('mousemove', onMM);
     canvas.removeEventListener('mouseleave', onML);
     canvas.classList.remove('is-revealing');
+    eqCanvas.style.opacity = '0';
     document.body.classList.remove('detail-scrolling');
   };
 }
