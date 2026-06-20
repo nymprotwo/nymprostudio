@@ -453,7 +453,7 @@ function startPixelReveal(project) {
   const W = canvas.offsetWidth  || window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
-  canvas.height = H;
+  canvas.height = H + 1;
 
   // Equalizer canvas — sits directly above main canvas
   let eqCanvas = document.getElementById('proj-eq-canvas');
@@ -715,20 +715,22 @@ function startPixelReveal(project) {
     eqCanvas.style.opacity = isRevealed ? '1' : '0';
     if (isRevealed) {
       eqCtx.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
+      const eqSc  = texNW / W;
+      const eqNPX = PX * eqSc;
       for (let col = 0; col < COLS; col++) {
         const bars = eqHeight[col];
         if (bars < 0.1) continue;
         const barRows = Math.round(bars);
-        const baseX = col * PX;
-        // Draw from bottom of eqCanvas upward
+        const baseX   = col * PX;
+        const nX      = baseX * eqSc;
+        // Draw from bottom of eqCanvas upward, continuing texture above canvas top
         for (let r = 0; r < barRows; r++) {
           const baseY = (EQ_MAX_ROWS - 1 - r) * PX;
+          // r=0 is 1 row above canvas (srcYOff - 1 row), r=1 is 2 rows above, etc.
+          const nY = Math.max(0, srcYOff - (r + 1) * eqSc * PX);
           eqCtx.fillStyle = '#06050A';
           eqCtx.fillRect(baseX, baseY, PX, PX);
-          // image tile — mirror from row 0 of main texture
-          const nPX = PX * (texNW / W);
-          const nX = baseX * (texNW / W);
-          eqCtx.drawImage(tex, nX, 0, nPX, nPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+          eqCtx.drawImage(tex, nX, nY, eqNPX, eqNPX, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
         }
       }
     }
