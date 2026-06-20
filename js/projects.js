@@ -524,24 +524,22 @@ function startPixelReveal(project) {
     tileRevealN[i] = Math.random();
   }
   // Generate static tear pattern: outer row only
-  // Torn edge: pick ~20 random column positions, knock out 1-2 pixels deep
-  // All other pixels stay fully visible (alpha=1.0 by default)
-  const tearCount = Math.round(COLS * 0.18); // ~18% of cols get a chip
-  for (let k = 0; k < tearCount; k++) {
-    const col = Math.floor(Math.random() * COLS);
-    // Top edge chip
-    const depthT = Math.random() < 0.5 ? 1 : 2; // 1 or 2 pixels deep
+  // Organic edge shape: every column gets a random depth 1-7 rows at top and bottom
+  // Deeper columns are rarer — creates natural uneven silhouette
+  for (let col = 0; col < COLS; col++) {
+    // Top: random depth per column, biased toward shallower
+    const depthT = Math.floor(Math.pow(Math.random(), 1.8) * 7) + 1;
     for (let d = 0; d < depthT; d++) {
-      const ci = d * COLS + col;
-      const r = Math.random();
-      tileEdgeAlpha[ci] = r < 0.5 ? 0.0 : r < 0.75 ? 0.3 : 0.6;
+      const alpha = d === depthT - 1 ? (Math.random() < 0.5 ? 0.0 : 0.4) // boundary row: partial
+                                     : 0.0; // inner rows: fully removed
+      tileEdgeAlpha[d * COLS + col] = alpha;
     }
-    // Bottom edge chip
-    const depthB = Math.random() < 0.5 ? 1 : 2;
+    // Bottom: same approach
+    const depthB = Math.floor(Math.pow(Math.random(), 1.8) * 7) + 1;
     for (let d = 0; d < depthB; d++) {
-      const ci = (ROWS - 1 - d) * COLS + col;
-      const r = Math.random();
-      tileEdgeAlpha[ci] = r < 0.5 ? 0.0 : r < 0.75 ? 0.3 : 0.6;
+      const alpha = d === depthB - 1 ? (Math.random() < 0.5 ? 0.0 : 0.4)
+                                     : 0.0;
+      tileEdgeAlpha[(ROWS - 1 - d) * COLS + col] = alpha;
     }
   }
 
@@ -566,8 +564,7 @@ function startPixelReveal(project) {
     }
   }
 
-  const IDLE_PROG = 0.55; // initial resting reveal level (no scroll needed)
-  let masterTgt = IDLE_PROG, masterProg = IDLE_PROG;
+  let masterTgt = 0, masterProg = 0;
   let prevMasterProg = 0;
   let scrollTime = 0;
   let smoothScrollVel = 0;
@@ -628,7 +625,7 @@ function startPixelReveal(project) {
     e.preventDefault();
     e.stopImmediatePropagation();
     const speed = 0.004; // unified speed for reveal and image scroll
-    masterTgt = Math.max(IDLE_PROG, Math.min(4, masterTgt + e.deltaY * speed));
+    masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * speed));
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
@@ -703,7 +700,7 @@ function startPixelReveal(project) {
     const baseYOff = texNH * 0.28;  // start 28% down image so subject appears immediately
     const srcYOff  = baseYOff + imgT * Math.max(0, texNH - baseYOff - visH);
 
-    document.body.classList.toggle('detail-scrolling', masterTgt > IDLE_PROG + 0.05);
+    document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
     ctx.clearRect(0, 0, W, H);
     canvas.classList.toggle('is-revealing', p2 > 0.005);
 
@@ -724,7 +721,7 @@ function startPixelReveal(project) {
         if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
-        let alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
+        let alpha = tileEdgeAlpha[ci]; // organic shape: all edge rows have custom alpha
         if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         // Letter silhouette: solid dark tile over letter area (hides title, creates shape)
