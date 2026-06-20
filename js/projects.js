@@ -638,13 +638,19 @@ function startPixelReveal(project) {
 
     // anyProg: top external eq fires on any scroll direction
     // fwdProg: bottom external eq fires only when scrolling forward (down)
-    fwdProg += ((goingFwd  ? 1 : 0) - fwdProg) * (goingFwd  ? 0.20 : 0.25);
-    revProg += ((scrolling ? 1 : 0) - revProg)  * (scrolling ? 0.20 : 0.25); // reuse revProg as anyProg
-
-    // When scroll stops, immediately zero targets so eq collapses without lag
-    if (!scrolling) {
-      eqTarget.fill(0);
+    // fwdProg: snaps OFF instantly when scroll direction changes or stops
+    if (goingFwd) {
+      fwdProg += (1 - fwdProg) * 0.20;
+    } else {
+      fwdProg = 0; // instant off — no bottom eq bleeding into reverse scroll
       eqBotTarget.fill(0);
+    }
+    // anyProg (revProg reused): fires on any scroll, snaps off when stopped
+    if (scrolling) {
+      revProg += (1 - revProg) * 0.20;
+    } else {
+      revProg = 0;
+      eqTarget.fill(0);
     }
 
     const updateEq = (timer, interval, heights, targets, prog, maxRows, prob) => {
@@ -714,27 +720,7 @@ function startPixelReveal(project) {
         let alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
         if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
-        if (masterProg > 0.98) {
-          // Bottom internal eq (forward scroll): eat rows from bottom with opacity variety
-          if (eqBotHeight[col] > 0.1) {
-            const botRows = Math.round(eqBotHeight[col]);
-            const depth   = ROWS - 1 - row; // 0 = bottommost
-            if (depth < botRows) {
-              const cls = eqBotColClass[col];
-              if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-              alpha *= cls === 1 ? 0.6 : 0.3;
-            }
-          }
-          // Top internal eq (reverse scroll): eat rows from top with opacity variety
-          if (revTopHeight[col] > 0.1) {
-            const topRows = Math.round(revTopHeight[col]);
-            if (row < topRows) {
-              const cls = revTopColClass[col];
-              if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-              alpha *= cls === 1 ? 0.6 : 0.3;
-            }
-          }
-        }
+        // (internal eq removed — only external eq canvases used)
 
         const baseX = col * PX;
         const baseY = row * PX;
