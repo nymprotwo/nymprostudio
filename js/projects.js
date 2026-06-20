@@ -547,45 +547,11 @@ function startPixelReveal(project) {
     }
   }
 
-  // Letter mask: tiles over the title text are dimmed to show letter silhouette
-  const tileMask = new Float32Array(COLS * ROWS).fill(1.0);
-  function buildLetterMask() {
-    const titleEl = document.querySelector('.proj-detail-title');
-    if (!titleEl) return;
-    const tr = titleEl.getBoundingClientRect();
-    const cr = canvas.getBoundingClientRect();
-    const mc = document.createElement('canvas');
-    mc.width = W; mc.height = canvas.height;
-    const mx = mc.getContext('2d');
-    const cs = getComputedStyle(titleEl);
-    // Use the same font as the title element
-    mx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    mx.textTransform = 'uppercase';
-    mx.fillStyle = 'white';
-    mx.textBaseline = 'top';
-    // Position relative to canvas
-    const tx = tr.left - cr.left;
-    const ty = tr.top  - cr.top;
-    // Title may wrap — render line by line
-    const lines = titleEl.innerText.trim().split('\n');
-    const lh = tr.height / Math.max(1, lines.length);
-    lines.forEach((line, i) => mx.fillText(line.toUpperCase(), tx, ty + i * lh));
-    const data = mx.getImageData(0, 0, W, canvas.height).data;
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const px = col * PX + (PX >> 1);
-        const py = row * PX + (PX >> 1);
-        const letterAlpha = data[(Math.min(py, canvas.height - 1) * W + Math.min(px, W - 1)) * 4 + 3] / 255;
-        // In letter area: tile is dimmed to ~15% — creates dark silhouette
-        tileMask[row * COLS + col] = letterAlpha > 0.05 ? 0.12 : 1.0;
-      }
-    }
+  // Random sparse holes: ~10% of tiles are removed for organic non-rectangular look
+  const tileMask = new Uint8Array(COLS * ROWS).fill(1);
+  for (let i = 0; i < COLS * ROWS; i++) {
+    if (Math.random() < 0.10) tileMask[i] = 0;
   }
-  // Run after fonts are guaranteed loaded
-  if (document.fonts && document.fonts.ready)
-    document.fonts.ready.then(buildLetterMask);
-  else
-    setTimeout(buildLetterMask, 200);
 
   let masterTgt = 0, masterProg = 0;
   let prevMasterProg = 0;
