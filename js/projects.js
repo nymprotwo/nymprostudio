@@ -635,10 +635,10 @@ function startPixelReveal(project) {
     const goingFwd   = scrollDelta >  0.00008 && isRevealed;
     const goingRev   = scrollDelta < -0.00008 && isRevealed;
 
-    if (goingFwd) { fwdProg += (1 - fwdProg) * 0.20; }
+    if (goingRev) { fwdProg += (1 - fwdProg) * 0.20; }
     else          { fwdProg = 0; botExtT.fill(0); topIntT.fill(0); }
 
-    if (goingRev) { revProg += (1 - revProg) * 0.20; }
+    if (goingFwd) { revProg += (1 - revProg) * 0.20; }
     else          { revProg = 0; topExtT.fill(0); botIntT.fill(0); }
 
     const upd = (timer, interval, H2, T, prog, maxR, prob) => {
