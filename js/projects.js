@@ -539,7 +539,7 @@ function startPixelReveal(project) {
   function onWheel(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
-    const speed = masterTgt < 1 ? 0.003 : 0.0007;
+    const speed = masterTgt < 1 ? 0.005 : 0.0007;
     masterTgt = Math.max(0, Math.min(4, masterTgt + e.deltaY * speed));
   }
   window.addEventListener('wheel', onWheel, { passive: false, capture: true });
@@ -581,9 +581,10 @@ function startPixelReveal(project) {
     const imgT    = Math.max(0, Math.min(1, (masterProg - 1) / 3));
 
     // Image coordinate scale
-    const sc      = texNW / W;
-    const visH    = H * sc;
-    const srcYOff = imgT * Math.max(0, texNH - visH);
+    const sc       = texNW / W;
+    const visH     = H * sc;
+    const baseYOff = texNH * 0.28;  // start 28% down image so subject appears immediately
+    const srcYOff  = baseYOff + imgT * Math.max(0, texNH - baseYOff - visH);
 
     document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
     ctx.clearRect(0, 0, W, H);
@@ -604,6 +605,13 @@ function startPixelReveal(project) {
         const scatter   = (tileRevealN[ci] - 0.5) * 0.25;
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
         if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+
+        // Equalizer: dancing top edge when canvas is revealed and user is scrolling
+        if (masterProg > 0.98 && row < 5 && expandProg > 0.02) {
+          const wave = Math.sin(scrollTime * 2.2 + col * 0.65 + tilePhase[col]) * 0.5 + 0.5;
+          const eqBar = wave * 4 * expandProg;
+          if (row <= eqBar) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        }
 
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
         const alpha = (row === 0 || row === ROWS - 1) ? tileEdgeAlpha[ci] : 1.0;
