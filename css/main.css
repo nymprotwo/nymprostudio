@@ -1904,7 +1904,13 @@ body[data-page="playground"] .cpop {
   display: block;
   cursor: crosshair;
   z-index: 20;
-  opacity: 1;
+  opacity: 0;
+  pointer-events: none;
   filter: saturate(0.55) brightness(0.8);
+  transition: opacity 0.3s ease;
+}
+.proj-pixel-canvas.is-revealing {
+  opacity: 1;
+  pointer-events: auto;
 }
 
