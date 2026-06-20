@@ -1897,7 +1897,7 @@ body[data-page="playground"] .cpop {
   position: absolute;
   left: 5vw;
   right: 5vw;
-  top: calc(50% + 2vw);
+  top: calc(50% + 2vw - 70px);
   transform: translateY(-50%);
   width: 90vw;
   height: calc(2 * 16vw * 0.88);

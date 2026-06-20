@@ -505,6 +505,9 @@ function startPixelReveal(project) {
   let prevMasterProg = 0;
   let scrollTime = 0;
   let expandProg = 0; // 0=normal 1=fully expanded during scroll
+  const eqHeight  = new Float32Array(COLS);   // current smoothed eq bar height per column
+  const eqTarget  = new Float32Array(COLS);   // target eq bar height per column
+  let eqTimer = 0;
   // Raw mouse position, updated on mousemove
   let mX = -9999, mY = -9999;
   // Smoothed position used for lens — lags behind cursor
@@ -567,6 +570,22 @@ function startPixelReveal(project) {
     const scrolling = scrollVel > 0.00008 && masterProg > 0.95;
     expandProg += ((scrolling ? 1 : 0) - expandProg) * (scrolling ? 0.12 : 0.035);
 
+    // Equalizer targets: random jumps per column, triggered by scroll
+    eqTimer += scrollVel;
+    if (eqTimer > 0.04) {
+      eqTimer = 0;
+      for (let c = 0; c < COLS; c++) {
+        if (Math.random() < 0.35) {
+          // random height 0-5, biased toward 0 and extremes
+          const r = Math.random();
+          eqTarget[c] = r < 0.3 ? 0 : Math.round(r * 5);
+        }
+      }
+    }
+    for (let c = 0; c < COLS; c++) {
+      eqHeight[c] += (eqTarget[c] * expandProg - eqHeight[c]) * 0.18;
+    }
+
     // Smooth mouse position — lens lags behind cursor
     if (mX > 0) {
       if (smoothMX < 0) { smoothMX = mX; smoothMY = mY; } // snap on first enter
@@ -606,11 +625,9 @@ function startPixelReveal(project) {
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
         if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
-        // Equalizer: dancing top edge when canvas is revealed and user is scrolling
-        if (masterProg > 0.98 && row < 5 && expandProg > 0.02) {
-          const wave = Math.sin(scrollTime * 2.2 + col * 0.65 + tilePhase[col]) * 0.5 + 0.5;
-          const eqBar = wave * 4 * expandProg;
-          if (row <= eqBar) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        // Equalizer: random jagged top edge above canvas during scroll
+        if (masterProg > 0.98 && row < 6 && eqHeight[col] > 0.1) {
+          if (row < eqHeight[col]) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
         }
 
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
