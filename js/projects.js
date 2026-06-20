@@ -783,7 +783,7 @@ function startPixelReveal(project) {
     const eqSc  = texNW / W;
     const eqNPX = PX * eqSc;
 
-    const drawEqCanvas = (ctx2, heights, tileClass, getY) => {
+    const drawEqCanvas = (ctx2, heights, tileClass, getY, growDown) => {
       ctx2.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
       for (let col = 0; col < COLS; col++) {
         const bars = heights[col];
@@ -792,7 +792,8 @@ function startPixelReveal(project) {
         const baseX   = col * PX;
         const nX      = baseX * eqSc;
         for (let r = 0; r < barRows; r++) {
-          const baseY = (EQ_MAX_ROWS - 1 - r) * PX;
+          // Top grows upward (r=0 at bottom of canvas), bottom grows downward (r=0 at top of canvas)
+          const baseY = growDown ? r * PX : (EQ_MAX_ROWS - 1 - r) * PX;
           const nY    = getY(r);
           const tc    = tileClass[col * EQ_MAX_ROWS + r];
           const ta    = tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3;
@@ -805,15 +806,14 @@ function startPixelReveal(project) {
       }
     };
 
-    if (fullyRevealed && tex) {
-      // Top external (forward): texture above canvas top
-      if (fwdProg > 0.01)
-        drawEqCanvas(eqCtx,    eqHeight,    eqTileClass,
-          r => Math.max(0, srcYOff - (r + 1) * eqSc * PX));
-      // Bottom external (reverse): texture below canvas bottom
-      if (revProg > 0.01)
-        drawEqCanvas(eqBotCtx, revBotHeight, revBotTileClass,
-          r => Math.min(texNH - eqNPX, srcYOff + visH + (r + 1) * eqSc * PX));
+    const showEq = fullyRevealed && tex && fwdProg > 0.01;
+    eqCanvas.style.opacity    = showEq ? '1' : '0';
+    eqBotCanvas.style.opacity = showEq ? '1' : '0';
+    if (showEq) {
+      drawEqCanvas(eqCtx,    eqHeight, eqTileClass,
+        r => Math.max(0, srcYOff - (r + 1) * eqSc * PX), false);
+      drawEqCanvas(eqBotCtx, eqHeight, eqTileClass,
+        r => Math.min(texNH - eqNPX, srcYOff + visH + r * eqSc * PX), true);
     }
   }
 
