@@ -453,55 +453,53 @@ function startPixelReveal(project) {
   const W = canvas.offsetWidth  || window.innerWidth;
   const H = canvas.offsetHeight || window.innerHeight;
   canvas.width  = W;
-  canvas.height = H; // exact: ROWS*PX set below after ROWS is computed
-
-  // Equalizer canvas — sits directly above main canvas
-  let eqCanvas = document.getElementById('proj-eq-canvas');
-  if (!eqCanvas) {
-    eqCanvas = document.createElement('canvas');
-    eqCanvas.id = 'proj-eq-canvas';
-    canvas.parentNode.insertBefore(eqCanvas, canvas);
-  }
-  eqCanvas.width  = W;
-  eqCanvas.height = EQ_MAX_ROWS * PX;
-  // Position: same left/right as main canvas, bottom edge = top edge of canvas
-  eqCanvas.style.cssText = `
-    position:absolute;
-    left:${canvas.style.left || '5vw'};
-    width:${W}px;
-    height:${EQ_MAX_ROWS * PX}px;
-    bottom:calc(100% - ${canvas.offsetTop}px + ${canvas.offsetTop}px);
-    z-index:20;
-    pointer-events:none;
-    opacity:0;
-    transition:opacity 0.3s ease;
-    filter:saturate(0.55) brightness(0.8);
-  `;
-  // Position it flush with canvas top
-  const canvasRect = canvas.getBoundingClientRect();
-  const parentRect = canvas.parentElement.getBoundingClientRect();
-  eqCanvas.style.left   = (canvasRect.left - parentRect.left) + 'px';
-  eqCanvas.style.top    = (canvasRect.top - parentRect.top - EQ_MAX_ROWS * PX) + 'px';
-  const eqCtx = eqCanvas.getContext('2d');
-
-  // Equalizer canvas — sits directly below main canvas (reverse scroll)
-  let eqBotCanvas = document.getElementById('proj-eq-bot-canvas');
-  if (!eqBotCanvas) {
-    eqBotCanvas = document.createElement('canvas');
-    eqBotCanvas.id = 'proj-eq-bot-canvas';
-    canvas.parentNode.insertBefore(eqBotCanvas, canvas.nextSibling);
-  }
-  eqBotCanvas.width  = W;
-  eqBotCanvas.height = EQ_MAX_ROWS * PX;
-  eqBotCanvas.style.cssText = eqCanvas.style.cssText; // same style base
-  eqBotCanvas.style.top  = (canvasRect.top - parentRect.top + H) + 'px';
-  eqBotCanvas.style.left = (canvasRect.left - parentRect.left) + 'px';
-  const eqBotCtx = eqBotCanvas.getContext('2d');
+  canvas.height = H;
 
   const COLS = Math.floor(W / PX);
   const ROWS = Math.floor(H / PX);
-  canvas.width  = COLS * PX; // exact pixel-perfect width
-  canvas.height = ROWS * PX; // exact pixel-perfect height — no stubs
+  canvas.width  = COLS * PX; // exact logical pixels — CSS stretches to 90vw
+  canvas.height = ROWS * PX;
+
+  // Scale factor: CSS px per logical px (same for both axes since aspect is preserved by CSS)
+  const cssScaleX = W / (COLS * PX);
+  const cssScaleY = H / (ROWS * PX);
+  const eqCssH = Math.round(EQ_MAX_ROWS * PX * cssScaleY); // CSS height of eq canvases
+
+  const canvasRect = canvas.getBoundingClientRect();
+  const parentRect = canvas.parentElement.getBoundingClientRect();
+  const canvasLeft = canvasRect.left - parentRect.left;
+  const canvasTop  = canvasRect.top  - parentRect.top;
+
+  const setupEqCanvas = (id, insertBefore) => {
+    let ec = document.getElementById(id);
+    if (!ec) { ec = document.createElement('canvas'); ec.id = id; }
+    if (insertBefore) canvas.parentNode.insertBefore(ec, canvas);
+    else canvas.parentNode.insertBefore(ec, canvas.nextSibling);
+    ec.width  = COLS * PX;          // same logical width as main canvas
+    ec.height = EQ_MAX_ROWS * PX;
+    ec.style.cssText = `
+      position:absolute;
+      pointer-events:none;
+      z-index:20;
+      opacity:0;
+      transition:opacity 0.3s ease;
+      filter:saturate(0.55) brightness(0.8);
+      left:${canvasLeft}px;
+      width:${W}px;
+      height:${eqCssH}px;
+    `;
+    return ec;
+  };
+
+  // Equalizer canvas — above main canvas
+  const eqCanvas    = setupEqCanvas('proj-eq-canvas', true);
+  eqCanvas.style.top = (canvasTop - eqCssH) + 'px';
+  const eqCtx = eqCanvas.getContext('2d');
+
+  // Equalizer canvas — below main canvas
+  const eqBotCanvas = setupEqCanvas('proj-eq-bot-canvas', false);
+  eqBotCanvas.style.top = (canvasTop + H) + 'px';
+  const eqBotCtx = eqBotCanvas.getContext('2d');
 
   const INNER_ROW0 = 0;
   const INNER_ROW1 = ROWS;
