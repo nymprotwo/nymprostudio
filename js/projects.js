@@ -587,6 +587,8 @@ function startPixelReveal(project) {
 
     document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
     ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#06050A';
+    ctx.fillRect(0, 0, W, H);
     canvas.classList.toggle('is-revealing', p2 > 0.005);
 
     if (!tex) return;
