@@ -728,7 +728,9 @@ function startPixelReveal(project) {
     const srcYOff  = baseYOff + imgT * Math.max(0, texNH - baseYOff - visH);
 
     document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
-    ctx.clearRect(0, 0, W, H);
+    // Fill with page bg so organic gaps hide the title underneath (not transparent)
+    ctx.fillStyle = '#06050A';
+    ctx.fillRect(0, 0, COLS * PX, ROWS * PX);
     canvas.classList.toggle('is-revealing', p2 > 0.005);
 
     if (!tex) return;
@@ -840,8 +842,10 @@ function startPixelReveal(project) {
 
     // ── Equalizer canvases ──
     const fullyRevealed = masterProg > 0.98;
-    eqCanvas.style.opacity    = '0'; // top external eq removed — effect drawn on main canvas
-    eqBotCanvas.style.opacity = (fullyRevealed && fwdProg > 0.01) ? '1' : '0';
+    const showTop = fullyRevealed && tex && revProg > 0.01;
+    const showBot = fullyRevealed && tex && fwdProg > 0.01;
+    eqCanvas.style.opacity    = showTop ? '1' : '0';
+    eqBotCanvas.style.opacity = showBot ? '1' : '0';
 
     const eqSc  = texNW / W;
     const eqNPX = PX * eqSc;
@@ -849,42 +853,18 @@ function startPixelReveal(project) {
     // prog → fade multiplier: starts at 0.5, reaches 1.0 as prog→1
     const fadeMult = (prog) => 0.5 + 0.5 * Math.min(1, prog * 2.5);
 
-    // Top eq: draw on top rows of main canvas instead of external canvas above
-    if (fullyRevealed && tex && revProg > 0.01) {
-      const nPX2 = PX * sc;
-      const fade = fadeMult(revProg);
-      for (let col = 0; col < COLS; col++) {
-        const bars = Math.round(topExtH[col]);
-        if (bars < 1) continue;
-        const baseX = col * PX;
-        const nX    = baseX * sc;
-        for (let r = 0; r < bars; r++) {
-          const baseY = r * PX;
-          const nY    = Math.max(0, Math.min(texNH - nPX2, r * PX * sc + srcYOff));
-          const tc    = topExtClass[col * EQ_MAX_ROWS + r];
-          const ta    = (tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3) * fade;
-          ctx.fillStyle = '#06050A';
-          ctx.fillRect(baseX, baseY, PX, PX);
-          ctx.globalAlpha = ta;
-          ctx.drawImage(tex, nX, nY, nPX2, nPX2, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
-          ctx.globalAlpha = 1;
-        }
-      }
-    }
-
-    if (fullyRevealed && tex && fwdProg > 0.01) {
-      const fade = fadeMult(fwdProg);
-      const ctx2 = eqBotCtx;
+    const drawEqCanvas = (ctx2, heights, tileClass, getY, growDown, prog) => {
       ctx2.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
+      const fade = fadeMult(prog);
       for (let col = 0; col < COLS; col++) {
-        const bars = Math.round(botExtH[col]);
+        const bars = Math.round(heights[col]);
         if (bars < 1) continue;
         const baseX = col * PX;
         const nX    = baseX * eqSc;
         for (let r = 0; r < bars; r++) {
-          const baseY = r * PX;
-          const nY    = Math.min(texNH - eqNPX, srcYOff + visH + r * eqSc * PX);
-          const tc    = botExtClass[col * EQ_MAX_ROWS + r];
+          const baseY = growDown ? r * PX : (EQ_MAX_ROWS - 1 - r) * PX;
+          const nY    = getY(r);
+          const tc    = tileClass[col * EQ_MAX_ROWS + r];
           const ta    = (tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3) * fade;
           ctx2.fillStyle = '#06050A';
           ctx2.fillRect(baseX, baseY, PX, PX);
@@ -893,7 +873,14 @@ function startPixelReveal(project) {
           ctx2.globalAlpha = 1;
         }
       }
-    }
+    };
+
+    if (showTop)
+      drawEqCanvas(eqCtx,    topExtH, topExtClass,
+        r => Math.max(0, srcYOff - (r + 1) * eqSc * PX), false, revProg);
+    if (showBot)
+      drawEqCanvas(eqBotCtx, botExtH, botExtClass,
+        r => Math.min(texNH - eqNPX, srcYOff + visH + r * eqSc * PX), true, fwdProg);
   }
 
   gdRaf = requestAnimationFrame(loop);
