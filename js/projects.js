@@ -745,7 +745,14 @@ function startPixelReveal(project) {
         const rowNorm   = row / Math.max(1, ROWS - 1);
         const scatter   = (tileRevealN[ci] - 0.5) * 0.25;
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
-        if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        if (p2 < revThresh) {
+          // Letter tiles stay dark even before the reveal wave reaches them
+          if (letterTiles[ci]) {
+            ctx.fillStyle = '#06050A';
+            ctx.fillRect(col * PX, row * PX, PX, PX);
+          }
+          cellDX[ci] = 0; cellDY[ci] = 0; continue;
+        }
 
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
         let alpha = tileEdgeAlpha[ci]; // organic shape: all edge rows have custom alpha
@@ -759,10 +766,10 @@ function startPixelReveal(project) {
           continue;
         }
 
-        // Internal eqs: tiles fade out at boundary then disappear
+        // Internal eqs: tiles fade out at boundary then disappear (skip for letter tiles)
         if (masterProg > 0.98) {
           // scroll UP → bottom internal: eat from bottom
-          if (botIntH[col] > 0.1) {
+          if (botIntH[col] > 0.1 && !letterTiles[ci]) {
             const depth = ROWS - 1 - row;
             if (depth < Math.round(botIntH[col])) {
               const cls = botIntClass[col];
@@ -771,7 +778,7 @@ function startPixelReveal(project) {
             }
           }
           // scroll DOWN → top internal: eat from top
-          if (topIntH[col] > 0.1) {
+          if (topIntH[col] > 0.1 && !letterTiles[ci]) {
             if (row < Math.round(topIntH[col])) {
               const cls = topIntClass[col];
               if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
@@ -833,8 +840,8 @@ function startPixelReveal(project) {
 
     // ── Equalizer canvases ──
     const fullyRevealed = masterProg > 0.98;
-    eqCanvas.style.opacity    = (fullyRevealed && fwdProg > 0.01) ? '1' : '0';
-    eqBotCanvas.style.opacity = (fullyRevealed && revProg > 0.01) ? '1' : '0';
+    eqCanvas.style.opacity    = '0'; // top external eq removed — effect drawn on main canvas
+    eqBotCanvas.style.opacity = (fullyRevealed && fwdProg > 0.01) ? '1' : '0';
 
     const eqSc  = texNW / W;
     const eqNPX = PX * eqSc;
@@ -842,19 +849,42 @@ function startPixelReveal(project) {
     // prog → fade multiplier: starts at 0.5, reaches 1.0 as prog→1
     const fadeMult = (prog) => 0.5 + 0.5 * Math.min(1, prog * 2.5);
 
-    const drawEqCanvas = (ctx2, heights, tileClass, getY, growDown, prog) => {
-      ctx2.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
-      const fade = fadeMult(prog);
+    // Top eq: draw on top rows of main canvas instead of external canvas above
+    if (fullyRevealed && tex && revProg > 0.01) {
+      const nPX2 = PX * sc;
+      const fade = fadeMult(revProg);
       for (let col = 0; col < COLS; col++) {
-        const bars = heights[col];
-        if (bars < 0.1) continue;
-        const barRows = Math.round(bars);
-        const baseX   = col * PX;
-        const nX      = baseX * eqSc;
-        for (let r = 0; r < barRows; r++) {
-          const baseY = growDown ? r * PX : (EQ_MAX_ROWS - 1 - r) * PX;
-          const nY    = getY(r);
-          const tc    = tileClass[col * EQ_MAX_ROWS + r];
+        const bars = Math.round(topExtH[col]);
+        if (bars < 1) continue;
+        const baseX = col * PX;
+        const nX    = baseX * sc;
+        for (let r = 0; r < bars; r++) {
+          const baseY = r * PX;
+          const nY    = Math.max(0, Math.min(texNH - nPX2, r * PX * sc + srcYOff));
+          const tc    = topExtClass[col * EQ_MAX_ROWS + r];
+          const ta    = (tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3) * fade;
+          ctx.fillStyle = '#06050A';
+          ctx.fillRect(baseX, baseY, PX, PX);
+          ctx.globalAlpha = ta;
+          ctx.drawImage(tex, nX, nY, nPX2, nPX2, baseX + GAP / 2, baseY + GAP / 2, CELL, CELL);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+
+    if (fullyRevealed && tex && fwdProg > 0.01) {
+      const fade = fadeMult(fwdProg);
+      const ctx2 = eqBotCtx;
+      ctx2.clearRect(0, 0, W, EQ_MAX_ROWS * PX);
+      for (let col = 0; col < COLS; col++) {
+        const bars = Math.round(botExtH[col]);
+        if (bars < 1) continue;
+        const baseX = col * PX;
+        const nX    = baseX * eqSc;
+        for (let r = 0; r < bars; r++) {
+          const baseY = r * PX;
+          const nY    = Math.min(texNH - eqNPX, srcYOff + visH + r * eqSc * PX);
+          const tc    = botExtClass[col * EQ_MAX_ROWS + r];
           const ta    = (tc === 0 ? 1.0 : tc === 1 ? 0.6 : 0.3) * fade;
           ctx2.fillStyle = '#06050A';
           ctx2.fillRect(baseX, baseY, PX, PX);
@@ -863,18 +893,7 @@ function startPixelReveal(project) {
           ctx2.globalAlpha = 1;
         }
       }
-    };
-
-    const showTop = fullyRevealed && tex && revProg > 0.01;
-    const showBot = fullyRevealed && tex && fwdProg > 0.01;
-    eqCanvas.style.opacity    = showTop ? '1' : '0';
-    eqBotCanvas.style.opacity = showBot ? '1' : '0';
-    if (showTop)
-      drawEqCanvas(eqCtx,    topExtH, topExtClass,
-        r => Math.max(0, srcYOff - (r + 1) * eqSc * PX), false, revProg);
-    if (showBot)
-      drawEqCanvas(eqBotCtx, botExtH, botExtClass,
-        r => Math.min(texNH - eqNPX, srcYOff + visH + r * eqSc * PX), true, fwdProg);
+    }
   }
 
   gdRaf = requestAnimationFrame(loop);
