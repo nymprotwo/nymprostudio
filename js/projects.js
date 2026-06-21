@@ -615,6 +615,10 @@ function startPixelReveal(project) {
   const topIntClass = mkClass(COLS); // per-col opacity for internal top
   const botIntClass = mkClass(COLS); // per-col opacity for internal bottom
 
+  // Static scatter mask for external eq: 30% of tiles randomly skipped to match reveal style
+  const eqScatter = new Uint8Array(COLS * EQ_MAX_ROWS);
+  for (let i = 0; i < eqScatter.length; i++) eqScatter[i] = Math.random() < 0.30 ? 1 : 0;
+
   let fwdProg = 0, revProg = 0;
   let topExtTimer = 0, botExtTimer = 0, topIntTimer = 0, botIntTimer = 0;
   // Raw mouse position, updated on mousemove
@@ -703,7 +707,7 @@ function startPixelReveal(project) {
       for (let c = 0; c < COLS; c++) H2[c] += (T[c] * prog - H2[c]) * 0.22;
       return timer;
     };
-    topExtTimer = upd(topExtTimer, 0.04,  topExtH, topExtT, revProg, EQ_MAX_ROWS, 0.35);
+    topExtTimer = upd(topExtTimer, 0.04,  topExtH, topExtT, revProg, 5,           0.35);
     botIntTimer = upd(botIntTimer, 0.055, botIntH, botIntT, revProg, 4,           0.30);
     botExtTimer = upd(botExtTimer, 0.04,  botExtH, botExtT, fwdProg, EQ_MAX_ROWS, 0.35);
     topIntTimer = upd(topIntTimer, 0.055, topIntH, topIntT, fwdProg, 4,           0.30);
@@ -728,9 +732,7 @@ function startPixelReveal(project) {
     const srcYOff  = baseYOff + imgT * Math.max(0, texNH - baseYOff - visH);
 
     document.body.classList.toggle('detail-scrolling', masterTgt > 0.02);
-    // Fill with page bg so organic gaps hide the title underneath (not transparent)
-    ctx.fillStyle = '#06050A';
-    ctx.fillRect(0, 0, COLS * PX, ROWS * PX);
+    ctx.clearRect(0, 0, COLS * PX, ROWS * PX);
     canvas.classList.toggle('is-revealing', p2 > 0.005);
 
     if (!tex) return;
@@ -766,6 +768,11 @@ function startPixelReveal(project) {
           ctx.fillRect(col * PX, row * PX, PX, PX);
           cellDX[ci] = 0; cellDY[ci] = 0;
           continue;
+        }
+
+        // Top-row scatter: blend canvas top edge with external eq above (non-letter tiles only)
+        if (revProg > 0.01 && row < 3 && !letterTiles[ci]) {
+          if (tileEdgeN[ci] < revProg * 0.65) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
         }
 
         // Internal eqs: tiles fade out at boundary then disappear (skip for letter tiles)
@@ -862,6 +869,8 @@ function startPixelReveal(project) {
         const baseX = col * PX;
         const nX    = baseX * eqSc;
         for (let r = 0; r < bars; r++) {
+          // Static scatter: skip ~30% of tiles to match reveal wave style
+          if (eqScatter[col * EQ_MAX_ROWS + r]) continue;
           const baseY = growDown ? r * PX : (EQ_MAX_ROWS - 1 - r) * PX;
           const nY    = getY(r);
           const tc    = tileClass[col * EQ_MAX_ROWS + r];
