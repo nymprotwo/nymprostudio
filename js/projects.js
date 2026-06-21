@@ -524,24 +524,51 @@ function startPixelReveal(project) {
     tileRevealN[i] = Math.random();
   }
   // Generate static tear pattern: outer row only
-  // Organic edge shape: every column gets a random depth 1-7 rows at top and bottom
-  // Deeper columns are rarer — creates natural uneven silhouette
-  for (let col = 0; col < COLS; col++) {
-    // Top: random depth per column, biased toward shallower
-    const depthT = Math.floor(Math.pow(Math.random(), 1.8) * 7) + 1;
-    for (let d = 0; d < depthT; d++) {
-      const alpha = d === depthT - 1 ? (Math.random() < 0.5 ? 0.0 : 0.4) // boundary row: partial
-                                     : 0.0; // inner rows: fully removed
-      tileEdgeAlpha[d * COLS + col] = alpha;
+  // letterTiles[ci] = true if this tile overlaps a title letter — set after font load
+  const letterTiles = new Uint8Array(COLS * ROWS);
+
+  function applyOrganicShape() {
+    const titleEl = document.querySelector('.proj-detail-title');
+    if (!titleEl) return;
+    const tr = titleEl.getBoundingClientRect();
+    const cr = canvas.getBoundingClientRect();
+    if (cr.width === 0 || cr.height === 0) { setTimeout(applyOrganicShape, 100); return; }
+
+    // Map title bounding box → tile grid, with 1-tile padding on all sides
+    const scX = COLS / cr.width, scY = ROWS / cr.height;
+    const PAD = 1;
+    const colMin = Math.max(0,    Math.floor((tr.left - cr.left) * scX) - PAD);
+    const colMax = Math.min(COLS, Math.ceil ((tr.right - cr.left) * scX) + PAD);
+    const rowMin = Math.max(0,    Math.floor((tr.top  - cr.top)  * scY) - PAD);
+    const rowMax = Math.min(ROWS, Math.ceil ((tr.bottom - cr.top) * scY) + PAD);
+
+    for (let r = rowMin; r < rowMax; r++)
+      for (let c = colMin; c < colMax; c++)
+        letterTiles[r * COLS + c] = 1;
+
+    // Organic edge removal — only to non-letter tiles
+    for (let col = 0; col < COLS; col++) {
+      const depthT = Math.floor(Math.pow(Math.random(), 1.6) * 6) + 1;
+      for (let d = 0; d < depthT; d++) {
+        const ci = d * COLS + col;
+        if (!letterTiles[ci])
+          tileEdgeAlpha[ci] = d === depthT - 1 ? (Math.random() < 0.4 ? 0.4 : 0.0) : 0.0;
+      }
+      const depthB = Math.floor(Math.pow(Math.random(), 1.6) * 6) + 1;
+      for (let d = 0; d < depthB; d++) {
+        const ci = (ROWS - 1 - d) * COLS + col;
+        if (!letterTiles[ci])
+          tileEdgeAlpha[ci] = d === depthB - 1 ? (Math.random() < 0.4 ? 0.4 : 0.0) : 0.0;
+      }
     }
-    // Bottom: same approach
-    const depthB = Math.floor(Math.pow(Math.random(), 1.8) * 7) + 1;
-    for (let d = 0; d < depthB; d++) {
-      const alpha = d === depthB - 1 ? (Math.random() < 0.5 ? 0.0 : 0.4)
-                                     : 0.0;
-      tileEdgeAlpha[(ROWS - 1 - d) * COLS + col] = alpha;
-    }
+
+    // Protect letter tiles from cluster holes
+    for (let ci = 0; ci < COLS * ROWS; ci++)
+      if (letterTiles[ci]) tileMask[ci] = 1;
   }
+
+  // Double rAF ensures layout is complete before we read getBoundingClientRect
+  requestAnimationFrame(() => requestAnimationFrame(applyOrganicShape));
 
   // Sparse cluster holes: ~1% coverage, small groups (single, row of 3-5, 2×2 square)
   const tileMask = new Uint8Array(COLS * ROWS).fill(1);
