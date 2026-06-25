@@ -749,14 +749,7 @@ function startPixelReveal(project) {
         const rowNorm   = row / Math.max(1, ROWS - 1);
         const scatter   = (tileRevealN[ci] - 0.5) * 0.25;
         const revThresh = Math.max(0, Math.min(1, (1 - rowNorm) + scatter));
-        if (p2 < revThresh) {
-          // Letter tiles stay dark even before the reveal wave reaches them
-          if (letterTiles[ci]) {
-            ctx.fillStyle = '#06050A';
-            ctx.fillRect(col * PX, row * PX, PX, PX);
-          }
-          cellDX[ci] = 0; cellDY[ci] = 0; continue;
-        }
+        if (p2 < revThresh) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
 
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
         let alpha = tileEdgeAlpha[ci]; // organic shape: all edge rows have custom alpha
