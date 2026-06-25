@@ -775,23 +775,23 @@ function startPixelReveal(project) {
           if (tileEdgeN[ci] < revProg * 0.65) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
         }
 
-        // Internal eqs: tiles fade out at boundary then disappear (skip for letter tiles)
-        if (masterProg > 0.98) {
-          // scroll UP → bottom internal: eat from bottom
-          if (botIntH[col] > 0.1 && !letterTiles[ci]) {
+        // Internal eqs: scattered tiles 3-4 rows deep from edges during scroll
+        if (masterProg > 0.98 && !letterTiles[ci]) {
+          // scroll UP (fwdProg) → bottom internal rows scatter
+          if (botIntH[col] > 0.1) {
             const depth = ROWS - 1 - row;
-            if (depth < Math.round(botIntH[col])) {
-              const cls = botIntClass[col];
-              if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-              alpha *= cls === 1 ? 0.6 : 0.3;
+            const depthMax = Math.round(botIntH[col]);
+            if (depth < depthMax) {
+              if (tileRevealN[ci] < 0.38) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+              alpha *= 0.45 + 0.55 * (depth / Math.max(1, depthMax));
             }
           }
-          // scroll DOWN → top internal: eat from top
-          if (topIntH[col] > 0.1 && !letterTiles[ci]) {
-            if (row < Math.round(topIntH[col])) {
-              const cls = topIntClass[col];
-              if (cls === 0) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
-              alpha *= cls === 1 ? 0.6 : 0.3;
+          // scroll DOWN (revProg) → top internal rows scatter
+          if (topIntH[col] > 0.1) {
+            const depthMax = Math.round(topIntH[col]);
+            if (row < depthMax) {
+              if (tileRevealN[ci] < 0.38) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+              alpha *= 0.45 + 0.55 * (row / Math.max(1, depthMax));
             }
           }
         }
