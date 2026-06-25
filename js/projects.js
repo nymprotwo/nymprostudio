@@ -693,12 +693,12 @@ function startPixelReveal(project) {
     if (goingFwd) { revProg += (1 - revProg) * 0.20; }
     else          { revProg = 0; topExtT.fill(0); botIntT.fill(0); }
 
-    const upd = (timer, interval, H2, T, prog, maxR, prob) => {
+    const upd = (timer, interval, H2, T, prog, maxR, prob, minR = 1) => {
       if (prog > 0.01) {
         timer += scrollVel;
         if (timer > interval) {
           timer = 0;
-          const effectiveMax = Math.max(1, Math.round(maxR * eqScale));
+          const effectiveMax = Math.max(minR, Math.round(maxR * eqScale));
           for (let c = 0; c < COLS; c++) {
             if (Math.random() < prob) { const r = Math.random(); T[c] = r < 0.3 ? 0 : Math.round(r * effectiveMax); }
           }
@@ -708,9 +708,9 @@ function startPixelReveal(project) {
       return timer;
     };
     topExtTimer = upd(topExtTimer, 0.04,  topExtH, topExtT, revProg, 5,           0.35);
-    botIntTimer = upd(botIntTimer, 0.055, botIntH, botIntT, revProg, 4,           0.30);
+    botIntTimer = upd(botIntTimer, 0.055, botIntH, botIntT, revProg, 4,           0.30, 3);
     botExtTimer = upd(botExtTimer, 0.04,  botExtH, botExtT, fwdProg, EQ_MAX_ROWS, 0.35);
-    topIntTimer = upd(topIntTimer, 0.055, topIntH, topIntT, fwdProg, 4,           0.30);
+    topIntTimer = upd(topIntTimer, 0.055, topIntH, topIntT, fwdProg, 4,           0.30, 3);
 
     // Smooth mouse position — lens lags behind cursor
     if (mX > 0) {
