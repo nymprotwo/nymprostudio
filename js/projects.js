@@ -760,7 +760,12 @@ function startPixelReveal(project) {
 
         // Edge tear: only outermost row (0 and ROWS-1) has static sparse alpha
         let alpha = tileEdgeAlpha[ci]; // organic shape: all edge rows have custom alpha
-        if (alpha < 0.01) { cellDX[ci] = 0; cellDY[ci] = 0; continue; }
+        if (alpha < 0.01) {
+          // Organic gap — draw dark so title doesn't show through
+          ctx.fillStyle = '#06050A';
+          ctx.fillRect(col * PX, row * PX, PX, PX);
+          cellDX[ci] = 0; cellDY[ci] = 0; continue;
+        }
 
         // Letter silhouette: solid dark tile over letter area (hides title, creates shape)
         if (tileMask[ci] < 0.5) {
