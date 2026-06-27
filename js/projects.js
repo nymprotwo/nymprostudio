@@ -293,8 +293,18 @@ function initDrum() {
   scrollTgt = 0;
   applyDrum();
 
-  // Wheel
+  // Wheel (desktop)
   scrollWrap.addEventListener('wheel', onWheel, { passive: false });
+
+  // Touch (mobile drum scroll)
+  let touchY0 = 0;
+  scrollWrap.addEventListener('touchstart', (e) => { touchY0 = e.touches[0].clientY; }, { passive: true });
+  scrollWrap.addEventListener('touchmove',  (e) => {
+    e.preventDefault();
+    const dy = touchY0 - e.touches[0].clientY;
+    touchY0 = e.touches[0].clientY;
+    scrollTgt += dy * 1.4;
+  }, { passive: false });
 
   // Start RAF
   if (drumRaf) cancelAnimationFrame(drumRaf);

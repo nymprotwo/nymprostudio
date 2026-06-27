@@ -9,7 +9,9 @@ import { pauseLenis, resumeLenis } from './smooth-scroll.js?v=29';
 import { registerExitHandler }    from './overlays.js?v=28';
 
 // ── Config ─────────────────────────────────────────
+const isMobile = () => 'ontouchstart' in window || window.matchMedia('(hover:none)').matches;
 const CELL    = 30;
+const CELL_M  = 42; // larger tap target on mobile
 const MINE_R  = 0.155;
 const HEADER_H = 60; // px — fixed header height to skip
 const NUM_COL = ['','#00d4ff','#00ff88','#ff4466','#bb88ff','#ff8822','#00ffdd','#ffffff','#888899'];
@@ -51,8 +53,8 @@ let rafId = null, active = false;
 const idx = (c,r) => r*cols+c;
 const col = i => i%cols;
 const row = i => Math.floor(i/cols);
-const cx  = i => col(i)*CELL + CELL/2;
-const cy  = i => row(i)*CELL + CELL/2;
+const cx  = i => { const CS=cellSize(); return col(i)*CS + CS/2; };
+const cy  = i => { const CS=cellSize(); return row(i)*CS + CS/2; };
 
 function neighbours(i) {
   const c=col(i),r=row(i),nb=[];
@@ -105,9 +107,12 @@ function drawRain() {
   ctx.restore();
 }
 
+function cellSize() { return isMobile() ? CELL_M : CELL; }
+
 function newGame() {
-  cols  = Math.max(10, Math.floor(canvas.width  / CELL));
-  rows  = Math.max(8,  Math.floor(canvas.height / CELL));
+  const CS = cellSize();
+  cols  = Math.max(8,  Math.floor(canvas.width  / CS));
+  rows  = Math.max(6,  Math.floor(canvas.height / CS));
   total = cols*rows;
   mineCount = Math.round(total*MINE_R);
   cells = Array.from({length:total}, ()=>({mine:false,revealed:false,flagged:false,number:0}));
@@ -270,27 +275,28 @@ function draw(){
   updateScales();
 
   // Wave front for entrance (top→bottom, introT=0 start, 1 done)
-  const waveY = introDone ? H*2 : introT * (H + CELL*2) - CELL;
+  const CS = cellSize();
+  const waveY = introDone ? H*2 : introT * (H + CS*2) - CS;
 
   for(let i=0;i<total;i++){
     const c  = cells[i];
-    const bx = col(i)*CELL, by = row(i)*CELL;
-    const cy_ = by + CELL/2;
+    const bx = col(i)*CS, by = row(i)*CS;
+    const cy_ = by + CS/2;
 
     // Entrance: hide cells above the wave front
     if(!introDone && cy_>waveY) continue;
 
     const sc    = cellScale[i];
-    const cl    = CELL-1;
+    const cl    = CS-1;
     const flash = flashCells.find(f=>f.idx===i);
     const hover = i===hoverIdx;
 
     // Apply scale transform around cell centre
     ctx.save();
     if(sc!==1){
-      ctx.translate(bx+CELL/2, by+CELL/2);
+      ctx.translate(bx+CS/2, by+CS/2);
       ctx.scale(sc,sc);
-      ctx.translate(-(bx+CELL/2),-(by+CELL/2));
+      ctx.translate(-(bx+CS/2),-(by+CS/2));
     }
 
     if(c.revealed){
@@ -311,9 +317,9 @@ function draw(){
         if(c.number>0){
           ctx.shadowColor=NUM_COL[c.number]; ctx.shadowBlur=6;
           ctx.fillStyle=NUM_COL[c.number];
-          ctx.font=`bold ${Math.round(CELL*0.52)}px monospace`;
+          ctx.font=`bold ${Math.round(CS*0.52)}px monospace`;
           ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText(c.number, bx+CELL/2, by+CELL/2);
+          ctx.fillText(c.number, bx+CS/2, by+CS/2);
           ctx.shadowBlur=0;
         }
       }
@@ -343,8 +349,8 @@ function draw(){
       // Intro scan-line glow on the wave front
       if(!introDone){
         const dist=Math.abs(cy_-waveY);
-        if(dist<CELL*3){
-          const g=1-dist/(CELL*3);
+        if(dist<CS*3){
+          const g=1-dist/(CS*3);
           ctx.fillStyle=`rgba(30,159,226,${g*0.35})`;
           ctx.fillRect(bx,by,cl,cl);
         }
@@ -356,9 +362,9 @@ function draw(){
       }
       if(c.flagged){
         ctx.fillStyle='#ff4466'; ctx.shadowColor='#ff4466'; ctx.shadowBlur=10;
-        ctx.font=`${Math.round(CELL*0.55)}px sans-serif`;
+        ctx.font=`${Math.round(CS*0.55)}px sans-serif`;
         ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('⚑',bx+CELL/2,by+CELL/2);
+        ctx.fillText('⚑',bx+CS/2,by+CS/2);
         ctx.shadowBlur=0;
       }
     }
@@ -368,9 +374,9 @@ function draw(){
       ctx.fillStyle='rgba(255,50,50,0.12)';
       ctx.fillRect(bx,by,cl,cl);
       ctx.fillStyle='#ff3355';
-      ctx.font=`${Math.round(CELL*0.48)}px monospace`;
+      ctx.font=`${Math.round(CS*0.48)}px monospace`;
       ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('◉',bx+CELL/2,by+CELL/2);
+      ctx.fillText('◉',bx+CS/2,by+CS/2);
     }
 
     ctx.restore();
@@ -415,9 +421,41 @@ function loop(){ rafId=requestAnimationFrame(loop); if(active) draw(); }
 
 // ── Input ────────────────────────────────────────────
 function cellAt(x,y){
-  const c=Math.floor(x/CELL),r=Math.floor(y/CELL);
+  const CS=cellSize();
+  const c=Math.floor(x/CS),r=Math.floor(y/CS);
   if(c<0||c>=cols||r<0||r>=rows) return -1;
   return idx(c,r);
+}
+
+// Mobile touch: single tap = flag, double tap on same cell = reveal
+let lastTapIdx = -1, lastTapTime = 0;
+function onTouch(e){
+  if(!active) return;
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  const t=e.changedTouches[0];
+  const i=cellAt(t.clientX-rect.left, t.clientY-rect.top);
+  if(state==='won'||state==='dead'){newGame();return;}
+  if(i<0) return;
+  const c=cells[i];
+  const now=Date.now();
+  const isDoubleTap = i===lastTapIdx && (now-lastTapTime)<400;
+  lastTapIdx=i; lastTapTime=now;
+  if(isDoubleTap){
+    // Double tap → reveal
+    if(firstClick){firstClick=false;placeMines(i);}
+    if(!c.revealed&&!c.flagged){
+      reveal(i);
+      if(c.mine){state='dead';spawnExplosion(i);}
+      else checkWin();
+    }
+  } else {
+    // Single tap → flag toggle (unless already revealed)
+    if(!c.revealed&&state==='playing'){
+      if(firstClick&&!c.flagged){firstClick=false;placeMines(i);}
+      c.flagged=!c.flagged; flagged+=c.flagged?1:-1;
+    }
+  }
 }
 function onClick(e){
   if(!active) return;
@@ -476,11 +514,15 @@ export function showSweep(){
   newGame();
   active=true;
 
-  canvas.addEventListener('click',       onClick);
-  canvas.addEventListener('contextmenu', onRightClick);
-  canvas.addEventListener('mousemove',   onMouseMove);
-  canvas.addEventListener('mouseleave',  onMouseLeave);
-  window.addEventListener('resize',      onResize);
+  if(isMobile()){
+    canvas.addEventListener('touchend', onTouch, { passive: false });
+  } else {
+    canvas.addEventListener('click',       onClick);
+    canvas.addEventListener('contextmenu', onRightClick);
+    canvas.addEventListener('mousemove',   onMouseMove);
+    canvas.addEventListener('mouseleave',  onMouseLeave);
+  }
+  window.addEventListener('resize', onResize);
 
   if(!rafId) rafId=requestAnimationFrame(loop);
   pauseLenis();
@@ -495,6 +537,7 @@ export function hideSweep(){
   setTimeout(()=>{pg.style.display='none';},500);
   active=false;
   if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  canvas?.removeEventListener('touchend',    onTouch);
   canvas?.removeEventListener('click',       onClick);
   canvas?.removeEventListener('contextmenu', onRightClick);
   canvas?.removeEventListener('mousemove',   onMouseMove);

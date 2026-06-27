@@ -1345,6 +1345,39 @@ body[data-page="playground"] .cpop {
 @media (max-width: 480px) {
   body { cursor: auto; }
   .hero__footer-mid { display: none; }
+
+  /* Header: stack logo + nav on very small screens */
+  .header { flex-wrap: wrap; gap: 0.5rem; padding: 0.9rem 1rem; }
+  .header__nav { gap: 0.6rem; font-size: 0.62rem; letter-spacing: 0.08em; }
+
+  /* Projects list touch-friendly */
+  .proj-item { min-height: 3.5rem; }
+
+  /* Projects detail: canvas fits mobile viewport */
+  .proj-pixel-canvas {
+    left: 0; right: 0; width: 100vw;
+    height: calc(100vw * 0.56);
+    top: 50%; transform: translateY(-50%);
+  }
+  .proj-detail-title { font-size: 14vw; }
+
+  /* Ensure sweep canvas doesn't overflow notch */
+  #sweep-canvas { top: env(safe-area-inset-top, 60px); }
+
+  /* Playground touch area */
+  .pg-close { right: 1rem; }
+
+  /* Back button larger tap target on mobile */
+  .proj-back { font-size: 13px; padding: 0.6rem 0.8rem; top: 0.8rem; left: 0.8rem; }
+}
+
+/* Viewport meta safety — prevent pinch zoom breaking layout */
+@media (hover: none) and (pointer: coarse) {
+  /* Touch scroll hint for project list */
+  .proj-scroll-hint { display: none; } /* replaced by natural swipe */
+
+  /* Projects detail: scroll hint hidden, swipe to scroll */
+  .proj-scroll-hint { display: none; }
 }
 
 /* ─────────────────────────────────────────────────────
