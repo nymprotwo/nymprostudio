@@ -35,6 +35,8 @@ function closePanel() {
 function openPage(name) {
   closePanel(); // overlay and page are mutually exclusive
   if (activePage === name) return;
+  // Close sweep/playground/projects before opening a page
+  for (const fn of exitHandlers) { try { fn(); } catch (e) {} }
   document.body.classList.add('is-page-open');
   document.body.dataset.page = name;
   // jump to top so user sees the hero overlay of the page

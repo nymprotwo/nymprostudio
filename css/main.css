@@ -384,7 +384,10 @@ body.cpop-open .hero__tag .dot {
 }
 .hero__shift { justify-self: start; }
 
-/* SHIFT button always visible above sweep — same spot, just lifted above */
+/* Hero lifted above sweep so shift-toggle stays visible */
+body[data-page="sweep"] .hero { z-index: 1050; }
+body[data-page="sweep"] .hero > *:not(.hero__footer) { opacity: 0; pointer-events: none; }
+body[data-page="sweep"] .hero__footer-mid { opacity: 0; pointer-events: none; }
 body[data-page="sweep"] #shift-toggle {
   position: fixed;
   bottom: 1.5rem;

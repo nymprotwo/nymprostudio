@@ -932,7 +932,8 @@ export function showProjects() {
   pg.style.display = 'block';
   requestAnimationFrame(() => pg.classList.add('is-visible'));
   pauseLenis();
-  document.body.dataset.page = 'projects';
+  // If detail view is already open, restore its data-page (back button needs it)
+  document.body.dataset.page = detailView?.classList.contains('is-visible') ? 'projects-detail' : 'projects';
 }
 
 export function hideProjects() {
@@ -946,7 +947,6 @@ export function hideProjects() {
   }
   pg.classList.remove('is-visible');
   setTimeout(() => { pg.style.display = 'none'; }, 500);
-  if (drumRaf) { cancelAnimationFrame(drumRaf); drumRaf = null; }
   delete document.body.dataset.page;
   hidePortal();
   resumeLenis();
