@@ -54,9 +54,22 @@ registerExitHandler(() => {
   }
 });
 
-// Playground toggle
-document.getElementById('playground-toggle')?.addEventListener('click', showPlayground);
-document.getElementById('projects-toggle')?.addEventListener('click', showProjects);
+// Tab switching: close whatever is open, then show the new screen
+function switchTo(showFn) {
+  const page = document.body.dataset.page;
+  const isProjects   = page === 'projects' || page === 'projects-detail';
+  const isPlayground = page === 'playground';
+  const isSweep      = page === 'sweep';
+  if (isProjects)   hideProjects();
+  if (isPlayground) hidePlayground();
+  if (isSweep)      hideSweep();
+  // If something was open, give it a brief moment to start fading before showing new
+  const delay = (isProjects || isPlayground || isSweep) ? 150 : 0;
+  setTimeout(showFn, delay);
+}
+
+document.getElementById('playground-toggle')?.addEventListener('click', () => switchTo(showPlayground));
+document.getElementById('projects-toggle')?.addEventListener('click',   () => switchTo(showProjects));
 document.getElementById('shift-toggle')?.addEventListener('click', () => {
   if (document.body.dataset.page === 'sweep') hideSweep();
   else showSweep();
