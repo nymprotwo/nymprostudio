@@ -7,7 +7,7 @@
 import { runSplash } from './splash.js?v=29';
 import { initScene, playMaskReveal, hideMask } from './scene.js?v=37';
 import { startRotator } from './rotator.js?v=28';
-import { initOverlays, registerExitHandler } from './overlays.js?v=28';
+import { initOverlays, registerExitHandler, openPage } from './overlays.js?v=29';
 import { startClock } from './clock.js?v=38';
 import { initShift, showShift, hideShift } from './shift.js?v=11';
 import { initMobileInput } from './input-mobile.js?v=28';
@@ -70,6 +70,11 @@ function switchTo(showFn) {
 
 document.getElementById('playground-toggle')?.addEventListener('click', () => switchTo(showPlayground));
 document.getElementById('projects-toggle')?.addEventListener('click',   () => switchTo(showProjects));
+document.querySelector('[data-page="about"]')?.addEventListener('click', (e) => {
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  switchTo(() => openPage('about'));
+}, true); // capture phase — fires before overlays.js listener
 document.getElementById('shift-toggle')?.addEventListener('click', () => {
   if (document.body.dataset.page === 'sweep') hideSweep();
   else showSweep();
