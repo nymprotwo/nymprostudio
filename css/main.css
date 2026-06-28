@@ -1663,6 +1663,8 @@ body[data-page="playground"] .cpop {
   pointer-events: none;
 }
 #page-projects.is-visible { opacity: 1; }
+#page-projects.is-instant-hide,
+#page-playground.is-instant-hide { transition: none !important; opacity: 0 !important; pointer-events: none !important; }
 
 /* ── List view ─────────────────────────────────── */
 .proj-list-view {

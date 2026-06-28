@@ -54,18 +54,21 @@ registerExitHandler(() => {
   }
 });
 
-// Tab switching: close whatever is open, then show the new screen
+// Tab switching: instantly hide the current screen, then show the new one
 function switchTo(showFn) {
   const page = document.body.dataset.page;
   const isProjects   = page === 'projects' || page === 'projects-detail';
   const isPlayground = page === 'playground';
   const isSweep      = page === 'sweep';
-  if (isProjects)   hideProjects();
-  if (isPlayground) hidePlayground();
+  // Force-hide with no transition so screens don't overlap
+  if (isProjects)   { document.getElementById('page-projects')?.classList.add('is-instant-hide');   hideProjects(); }
+  if (isPlayground) { document.getElementById('page-playground')?.classList.add('is-instant-hide'); hidePlayground(); }
   if (isSweep)      hideSweep();
-  // If something was open, give it a brief moment to start fading before showing new
-  const delay = (isProjects || isPlayground || isSweep) ? 150 : 0;
-  setTimeout(showFn, delay);
+  setTimeout(() => {
+    document.getElementById('page-projects')?.classList.remove('is-instant-hide');
+    document.getElementById('page-playground')?.classList.remove('is-instant-hide');
+    showFn();
+  }, 0);
 }
 
 document.getElementById('playground-toggle')?.addEventListener('click', () => switchTo(showPlayground));
