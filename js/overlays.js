@@ -40,8 +40,11 @@ export function openPage(name) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
+export function setActivePage(name) {
+  activePage = name;
+}
+
 function closePage() {
-  if (!activePage) return;
   document.body.classList.remove('is-page-open');
   delete document.body.dataset.page;
   window.scrollTo({ top: 0, behavior: 'instant' });
