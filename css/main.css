@@ -144,9 +144,16 @@ button { font: inherit; background: none; border: none; color: inherit; cursor: 
   pointer-events: none;
   transition: opacity 0.15s linear, z-index 0s;
 }
-/* When projects page is open — mask canvas floats above inactive text */
+/* Projects: canvas behind the text layer — shows through transparent bg */
 body[data-page="projects"] #stage {
-  z-index: 952;
+  z-index: 948;
+}
+body[data-page="projects"] #page-projects {
+  z-index: 950;
+}
+/* Remove dark film in list view — drum overlay handles dimming */
+body[data-page="projects"] #page-projects::before {
+  background: rgba(0,0,0,0.25);
 }
 
 /* Detail view — fully opaque, no mask, no background elements */
