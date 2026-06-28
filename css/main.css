@@ -1665,6 +1665,8 @@ body[data-page="playground"] .cpop {
 #page-projects.is-visible { opacity: 1; }
 #page-projects.is-instant-hide,
 #page-playground.is-instant-hide { transition: none !important; opacity: 0 !important; pointer-events: none !important; }
+#page-projects.is-tab-exit,
+#page-playground.is-tab-exit { transition: opacity 0.28s ease !important; opacity: 0 !important; pointer-events: none !important; }
 
 /* ── List view ─────────────────────────────────── */
 .proj-list-view {

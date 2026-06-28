@@ -691,11 +691,71 @@ export function dismissPlayground(onDone) {
   }, totalMs);
 }
 
+// ── Pixel reveal overlay ──────────────────────────────
+function playPgReveal() {
+  const cv = document.getElementById('pg-reveal-canvas');
+  if (!cv) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  cv.width  = W;
+  cv.height = H;
+  const ctx = cv.getContext('2d');
+  const PX = 18, COLS = Math.ceil(W / PX), ROWS = Math.ceil(H / PX);
+  const N = COLS * ROWS;
+  // Per-tile scatter noise (0..1) — determines reveal order
+  const noise = new Float32Array(N);
+  for (let i = 0; i < N; i++) noise[i] = Math.random();
+  // Scatter: random per-tile but biased toward bottom-up reveal
+  const revealN = new Float32Array(N);
+  for (let r = 0; r < ROWS; r++) {
+    const rowBias = (ROWS - r) / ROWS; // bottom rows reveal later
+    for (let c = 0; c < COLS; c++) {
+      const ci = r * COLS + c;
+      revealN[ci] = Math.random() * 0.55 + rowBias * 0.45;
+    }
+  }
+  // Normalise to 0..1
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < N; i++) { mn = Math.min(mn, revealN[i]); mx = Math.max(mx, revealN[i]); }
+  for (let i = 0; i < N; i++) revealN[i] = (revealN[i] - mn) / (mx - mn);
+
+  const DURATION = 1400; // ms total reveal
+  const start = performance.now();
+
+  function frame(now) {
+    const t = Math.min(1, (now - start) / DURATION);
+    // Ease in-out
+    const prog = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+    ctx.clearRect(0, 0, W, H);
+    let anyLeft = false;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const ci = r * COLS + c;
+        const tileThresh = revealN[ci];
+        if (prog < tileThresh) {
+          // Tile still covering — draw dark pixel
+          const edge = Math.max(0, (tileThresh - prog) / 0.12); // fade edges
+          const alpha = Math.min(1, edge);
+          ctx.fillStyle = `rgba(6,5,10,${alpha.toFixed(2)})`;
+          ctx.fillRect(c * PX, r * PX, PX - 1, PX - 1);
+          anyLeft = true;
+        }
+      }
+    }
+    if (anyLeft) requestAnimationFrame(frame);
+    else ctx.clearRect(0, 0, W, H);
+  }
+  requestAnimationFrame(frame);
+}
+
 export function showPlayground() {
   const pg = document.getElementById('page-playground');
   if (!pg) return;
   pg.style.display = 'block';
-  requestAnimationFrame(() => pg.classList.add('is-visible'));
+  requestAnimationFrame(() => {
+    pg.classList.add('is-visible');
+    playPgReveal();
+  });
   document.body.dataset.page = 'playground';
   active = true;
   pauseLenis();

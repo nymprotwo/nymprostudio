@@ -19,7 +19,7 @@ import { initFx } from './fx-switcher.js?v=33';
 import { initSkillsPreview } from './skills-preview.js?v=7';
 import { initContactPopup } from './contact-popup.js?v=2';
 import { initSweep, showSweep, hideSweep } from './minesweeper.js?v=9';
-import { initPlayground, showPlayground, hidePlayground, dismissPlayground } from './playground.js?v=62';
+import { initPlayground, showPlayground, hidePlayground, dismissPlayground } from './playground.js?v=63';
 import { initProjects, showProjects, hideProjects } from './projects.js?v=104';
 
 const splashEl = document.getElementById('splash');
@@ -54,21 +54,29 @@ registerExitHandler(() => {
   }
 });
 
-// Tab switching: instantly hide the current screen, then show the new one
+// Tab switching: fade old screen out (280ms), then show new
 function switchTo(showFn) {
   const page = document.body.dataset.page;
   const isProjects   = page === 'projects' || page === 'projects-detail';
   const isPlayground = page === 'playground';
   const isSweep      = page === 'sweep';
-  // Force-hide with no transition so screens don't overlap
-  if (isProjects)   { document.getElementById('page-projects')?.classList.add('is-instant-hide');   hideProjects(); }
-  if (isPlayground) { document.getElementById('page-playground')?.classList.add('is-instant-hide'); hidePlayground(); }
-  if (isSweep)      hideSweep();
+  const pgEl  = document.getElementById('page-projects');
+  const playEl = document.getElementById('page-playground');
+
+  if (isProjects)   pgEl?.classList.add('is-tab-exit');
+  if (isPlayground) playEl?.classList.add('is-tab-exit');
+
+  const FADE = (isProjects || isPlayground || isSweep) ? 280 : 0;
   setTimeout(() => {
-    document.getElementById('page-projects')?.classList.remove('is-instant-hide');
-    document.getElementById('page-playground')?.classList.remove('is-instant-hide');
-    showFn();
-  }, 0);
+    if (isProjects)   { pgEl?.classList.remove('is-tab-exit');   pgEl?.classList.add('is-instant-hide');   hideProjects(); }
+    if (isPlayground) { playEl?.classList.remove('is-tab-exit'); playEl?.classList.add('is-instant-hide'); hidePlayground(); }
+    if (isSweep)      hideSweep();
+    setTimeout(() => {
+      pgEl?.classList.remove('is-instant-hide');
+      playEl?.classList.remove('is-instant-hide');
+      showFn();
+    }, 0);
+  }, FADE);
 }
 
 document.getElementById('playground-toggle')?.addEventListener('click', () => switchTo(showPlayground));
